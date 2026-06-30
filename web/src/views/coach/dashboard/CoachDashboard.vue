@@ -1,33 +1,64 @@
 <template>
-  <div class="coach-dashboard">
-    <h2>👋 欢迎回来，{{ auth.user?.real_name || '教练' }}</h2>
+  <div class="page-container">
+    <div class="page-header">
+      <div>
+        <h2>👋 下午好，{{ auth.user?.real_name || '老师' }}</h2>
+        <p>今天是 {{ today }}，共 {{ stats.todayClasses }} 节课待完成</p>
+      </div>
+      <el-button type="primary" size="large" @click="$router.push('/coach/classroom')">
+        <el-icon style="margin-right:6px"><Reading /></el-icon>开始上课
+      </el-button>
+    </div>
+
     <el-row :gutter="20" class="stats-row">
-      <el-col :span="6" v-for="stat in stats" :key="stat.label">
-        <el-card shadow="hover">
-          <el-statistic :title="stat.label" :value="stat.value" :suffix="stat.suffix">
-            <template #prefix><el-icon :color="stat.color"><component :is="stat.icon" /></el-icon></template>
-          </el-statistic>
+      <el-col :span="6" v-for="s in statCards" :key="s.label">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-icon" :style="{ background: s.bg }">
+            <el-icon :size="20"><component :is="s.icon" /></el-icon>
+          </div>
+          <div class="stat-value">{{ s.value }}</div>
+          <div class="stat-label">{{ s.label }}</div>
         </el-card>
       </el-col>
     </el-row>
-    <el-row :gutter="20" class="content-row">
-      <el-col :span="16">
-        <el-card title="快捷操作">
-          <template #header>⚡ 快捷操作</template>
-          <el-row :gutter="12">
-            <el-col :span="8" v-for="action in quickActions" :key="action.text">
-              <el-button :type="action.type" :icon="action.icon" class="action-btn" @click="$router.push(action.path)">
-                {{ action.text }}
-              </el-button>
-            </el-col>
-          </el-row>
-        </el-card>
-      </el-col>
+
+    <el-row :gutter="20">
+      <!-- 快捷操作 -->
       <el-col :span="8">
         <el-card>
-          <template #header>📊 今日概览</template>
-          <div class="today-item" v-for="item in todayStats" :key="item.label">
-            <span>{{ item.label }}</span><strong>{{ item.value }}</strong>
+          <template #header><span class="card-title">⚡ 快捷操作</span></template>
+          <div class="action-grid">
+            <div v-for="a in actions" :key="a.text" class="action-item" @click="$router.push(a.path)">
+              <div class="action-icon" :style="{ background: a.bg }">
+                <el-icon :size="18"><component :is="a.icon" /></el-icon>
+              </div>
+              <span class="action-text">{{ a.text }}</span>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <!-- 学科入口 -->
+      <el-col :span="8">
+        <el-card>
+          <template #header><span class="card-title">📚 学科中心</span></template>
+          <div class="subject-grid">
+            <div
+              v-for="s in subjects"
+              :key="s.value"
+              class="subject-chip"
+              @click="$router.push(`/coach/subject/${s.value}/wrong-questions`)"
+            >{{ s.icon }} {{ s.label }}</div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <!-- 今日概览 -->
+      <el-col :span="8">
+        <el-card>
+          <template #header><span class="card-title">📊 今日概览</span></template>
+          <div class="today-item" v-for="t in todayStats" :key="t.label">
+            <span>{{ t.label }}</span><strong>{{ t.value }}</strong>
           </div>
         </el-card>
       </el-col>
@@ -36,37 +67,95 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useAuthStore } from '@/store/auth'
 const auth = useAuthStore()
 
-const stats = [
-  { label: '我的学员', value: 0, suffix: '人', icon: 'User', color: '#409EFF' },
-  { label: '今日课堂', value: 0, suffix: '节', icon: 'Reading', color: '#67C23A' },
-  { label: '待批作业', value: 0, suffix: '份', icon: 'Edit', color: '#E6A23C' },
-  { label: '学员进步', value: 0, suffix: '%', icon: 'TrendCharts', color: '#F56C6C' }
+const today = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'long' })
+
+const stats = {
+  todayClasses: 4,
+  weeklyHours: 18,
+  newStudents: 3,
+  completedTests: 12
+}
+
+const statCards = [
+  { label:'我的学员', value:28, icon:'User',    bg:'#EEF2FF' },
+  { label:'今日课堂', value:4,  icon:'Reading', bg:'#ECFDF5' },
+  { label:'本周课时', value:18, icon:'Calendar',bg:'#FFF7ED' },
+  { label:'待批作业', value:7,  icon:'Edit',    bg:'#FEF2F2' }
 ]
 
-const quickActions = [
-  { text: '开始课堂', icon: 'Reading', type: 'primary', path: '/coach/classroom' },
-  { text: '词汇测试', icon: 'Document', type: 'success', path: '/coach/vocab-test' },
-  { text: 'AI 阅读', icon: 'Notebook', type: 'warning', path: '/coach/ai-reading' },
-  { text: 'AI 口语', icon: 'MagicStick', type: 'danger', path: '/coach/ai-dialogue' },
-  { text: '蓝思报告', icon: 'TrendCharts', type: 'info', path: '/coach/lexile' },
-  { text: '学习反馈', icon: 'ChatLineSquare', type: '', path: '/coach/feedback' }
+const actions = [
+  { text:'英语课堂', icon:'Reading',    path:'/coach/classroom',   bg:'#EEF2FF' },
+  { text:'AI 阅读',  icon:'Notebook',   path:'/coach/ai-reading',  bg:'#ECFDF5' },
+  { text:'词汇测试', icon:'Document',   path:'/coach/vocab-test',  bg:'#FFF7ED' },
+  { text:'语法体系', icon:'Files',      path:'/coach/grammar',     bg:'#FEF2F2' },
+  { text:'AI 口语',  icon:'MagicStick', path:'/coach/ai-dialogue', bg:'#F5F3FF' },
+  { text:'学习反馈', icon:'ChatLineSquare', path:'/coach/feedback',bg:'#F0FDFA' }
+]
+
+const subjects = [
+  { value:'chinese',  label:'语文', icon:'📝' }, { value:'math', label:'数学', icon:'📐' },
+  { value:'english',  label:'英语', icon:'📖' }, { value:'physics', label:'物理', icon:'⚛️' },
+  { value:'chemistry',label:'化学', icon:'🧪' }, { value:'biology', label:'生物', icon:'🧬' },
+  { value:'history',  label:'历史', icon:'📜' }, { value:'politics', label:'政治', icon:'⚖️' },
+  { value:'geography',label:'地理', icon:'🌍' }
 ]
 
 const todayStats = [
-  { label: '本周课时', value: '0' },
-  { label: '新增学员', value: '0' },
-  { label: '测试完成', value: '0' },
-  { label: '阅读篇数', value: '0' }
+  { label:'本月新增学员', value:'3 人' },
+  { label:'本月课时完成', value:'42 节' },
+  { label:'平均出勤率',   value:'96%' },
+  { label:'学员满意度',   value:'4.8/5' }
 ]
 </script>
 
 <style scoped>
-.coach-dashboard h2 { margin-bottom: 24px; font-size: 22px; }
-.stats-row { margin-bottom: 24px; }
-.content-row { }
-.action-btn { width: 100%; margin-bottom: 8px; height: 64px; font-size: 15px; }
-.today-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ebeef5; }
+/* 统计卡片 */
+.stat-card { text-align: center; padding: 8px 0; }
+.stat-icon {
+  width: 44px; height: 44px; border-radius: var(--radius-md);
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-bottom: 12px; color: var(--color-primary);
+}
+.stat-value { font-size: 32px; font-weight: 700; line-height: 1.2; }
+.stat-label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+.card-title { font-weight: 600; font-size: 15px; }
+
+/* 快捷操作 */
+.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.action-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: all var(--transition);
+  border: 1px solid var(--color-border-light);
+}
+.action-item:hover { background: var(--color-bg-alt); border-color: var(--color-primary-light); }
+.action-icon {
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-primary); flex-shrink: 0;
+}
+.action-text { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+
+/* 学科网格 */
+.subject-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.subject-chip {
+  padding: 8px 6px; font-size: 13px; text-align: center;
+  border-radius: var(--radius-sm); cursor: pointer;
+  background: var(--color-bg-alt); transition: all var(--transition);
+}
+.subject-chip:hover { background: var(--color-primary-bg); color: var(--color-primary); }
+
+/* 今日概览 */
+.today-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--color-border-light);
+  font-size: 14px; color: var(--text-secondary);
+}
+.today-item:last-child { border-bottom: none; }
+.today-item strong { color: var(--text-primary); font-weight: 600; }
 </style>
