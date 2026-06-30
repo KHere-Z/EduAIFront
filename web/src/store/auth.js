@@ -9,8 +9,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => !!token.value)
   const role = computed(() => user.value?.role_type)
-  const isCoach = computed(() => role.value === 3)
-  const isAgency = computed(() => role.value === 2)
+  const isTeacher = computed(() => role.value === 3)
+  const isStudent = computed(() => role.value === 4)
   const isAdmin = computed(() => role.value === 1)
 
   async function login(username, password) {

@@ -83,9 +83,9 @@ const formRef = ref(null)
 const features = ['9 大学科全覆盖', 'AI 错题分析与举一反三', '智能课堂反馈', '学情雷达图 & 趋势分析']
 
 const roles = [
-  { label: '教师', value: 'teacher' },
-  { label: '机构', value: 'agency' },
-  { label: '平台', value: 'admin' }
+  { label: '老师', value: 'teacher' },
+  { label: '学生', value: 'student' },
+  { label: '管理', value: 'admin' }
 ]
 
 const form = reactive({ username: 'coach', password: 'coach123' })
@@ -102,9 +102,9 @@ async function handleLogin() {
     const res = await authStore.login(form.username, form.password)
     ElMessage.success(`欢迎回来，${res.user.real_name || form.username}`)
     const role = res.user.role_type
-    if (role === 3) router.push('/coach/dashboard')
-    else if (role === 2) router.push('/agency/dashboard')
-    else if (role === 1) router.push('/platform/dashboard')
+    if (role === 3) router.push('/teacher/dashboard')
+    else if (role === 4) router.push('/student/dashboard')
+    else if (role === 1) router.push('/admin/dashboard')
     else router.push('/')
   } catch (e) {
     ElMessage.error(e.message || '登录失败')

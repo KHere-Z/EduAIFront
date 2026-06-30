@@ -67,10 +67,9 @@ KHere-Z/EduAI/
 
 | 角色 | 标识 | 路由前缀 |
 |------|------|----------|
-| 平台管理员 | `admin` | `/platform` |
-| 机构管理员 | `agency` | `/agency` |
-| 教师/教练 | `teacher` | `/coach` |
-| 学生 | `student` | `/student`（待建） |
+| 平台管理员 | `admin` | `/admin` |
+| 教师 | `teacher` | `/teacher` |
+| 学生 | `student` | `/student` |
 
 测试账号：`coach/coach123` `agency/agency123` `admin/admin123`
 
