@@ -27,8 +27,8 @@
 | ① | 需求文档 & 技术栈 | ✅ `docs/spec/01-requirements.md` |
 | ② | 项目架构设计 | ✅ `docs/spec/02-architecture.md` |
 | ③ | 页面设计 & 前端编写 | ✅ `docs/spec/03-api-spec.md` |
-| ④ | 数据库设计与建立 | ⬅️ **后端待开始** |
-| ⑤ | 后端接口开发 | ⏳ |
+| ④ | 数据库设计与建立 | 🟡 英语完成 `docs/spec/04-database-english.md` |
+| ⑤ | 后端接口开发 | ⏳ 英语优先 |
 | ⑥ | 配置 AI 服务（DeepSeek） | ⏳ |
 | ⑦ | 部署上线 | ⏳ |
 
@@ -174,5 +174,6 @@ score-statistics  → 成绩统计（4核心指标+分布+明细）
 > 2026-06-30: ①②步完成  
 > 2026-06-30: ③前端完成 — 设计系统+登录页+Dashboard+9学科动态路由+9功能页+接口文档  
 > 2026-06-30: 三角色重构（coach→teacher, platform→admin, 去掉agency, 新增student）  
+> 2026-06-30: ④英语DB设计(14表) + 8个英语老师端页面完整实现
 > 2026-06-30: 老师端按任教学科动态菜单 — user.subjects驱动侧边栏+英语条件显示
 > 2026-06-30: Playwright + webapp-testing 测试体系安装，32页自动化测试通过
