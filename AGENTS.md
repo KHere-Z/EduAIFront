@@ -92,7 +92,7 @@ EduAI/
 | 角色 | role_type | 路由 | 测试账号 |
 |------|-----------|------|----------|
 | 管理员 | 1 | `/admin/dashboard` | admin / admin123 |
-| 老师 | 3 | `/teacher/dashboard` | coach / coach123 |
+| 老师 | 3 | `/teacher/dashboard` | coach(=数学+物理) / math(=单科) / multi(=三科) |
 | 学生 | 4 | `/student/dashboard` | 待后端实现 |
 
 **老师端**拥有最完整的页面 —— 英语专属功能 + 9学科通用功能。  
@@ -115,7 +115,19 @@ ai-analysis       → AI综合分析（雷达图+趋势+冲刺建议）
 score-statistics  → 成绩统计（4核心指标+分布+明细）
 ```
 
-## 六、英语学科（参照 airunword.com · 已移除蓝思值）
+## 六、老师端动态学科
+
+每个老师有 `user.subjects` 数组（如 `['math','physics']`），侧边栏和 Dashboard 根据实际任教学科动态渲染：
+
+- **单学科老师**（如 `math`）：学科中心只显示 1 个入口
+- **多学科老师**（如 `['math','physics','chemistry']`）：显示多个
+- **英语老师**：英语子菜单出现在侧边栏 + 快捷操作出现英语入口
+- **非英语老师**：英语菜单全部隐藏
+
+模拟登录时按用户名分配：`coach`→数学+物理，`math`→纯数学，`multi`→三科，`all`→全9科
+后端实现时从 Teacher 表读取 subject_ids，AuthService 登录后注入 subjects 字段
+
+## 七、英语学科（参照 airunword.com · 已移除蓝思值）
 
 ```
 /teacher/classroom        课堂管理
@@ -128,7 +140,7 @@ score-statistics  → 成绩统计（4核心指标+分布+明细）
 /teacher/feedback         学习反馈
 ```
 
-## 七、前后端约定
+## 八、前后端约定
 
 | 约定 | 值 |
 |------|-----|
@@ -139,7 +151,7 @@ score-statistics  → 成绩统计（4核心指标+分布+明细）
 | 响应格式 | `{ code, message, data }` |
 | 分页 | `?page=1&pageSize=20` → `{ list, total, page, pageSize }` |
 
-## 八、测试
+## 九、测试
 
 | 工具 | 说明 |
 |------|------|
@@ -150,7 +162,7 @@ score-statistics  → 成绩统计（4核心指标+分布+明细）
 
 运行：`PYTHONIOENCODING=utf-8 python web/tests/test_frontend.py`
 
-## 九、关键架构决策
+## 十、关键架构决策
 
 1. **动态学科路由** `/teacher/subject/:subject/*` 一个路由渲染 9 学科，避免 81 个页面
 2. **spring-boot-maven-plugin 只在 eduai-system**，其他模块不打 fat jar
@@ -162,4 +174,5 @@ score-statistics  → 成绩统计（4核心指标+分布+明细）
 > 2026-06-30: ①②步完成  
 > 2026-06-30: ③前端完成 — 设计系统+登录页+Dashboard+9学科动态路由+9功能页+接口文档  
 > 2026-06-30: 三角色重构（coach→teacher, platform→admin, 去掉agency, 新增student）  
+> 2026-06-30: 老师端按任教学科动态菜单 — user.subjects驱动侧边栏+英语条件显示
 > 2026-06-30: Playwright + webapp-testing 测试体系安装，32页自动化测试通过
