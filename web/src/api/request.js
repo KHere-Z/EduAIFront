@@ -4,7 +4,7 @@ import router from '@/router'
 import { useAuthStore } from '@/store/auth'
 
 const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || '/api',
+  baseURL: import.meta.env.VITE_API_BASE || '/api/v1',
   timeout: 30000
 })
 
@@ -19,7 +19,8 @@ http.interceptors.request.use(config => {
 http.interceptors.response.use(
   response => {
     const { data } = response
-    if (data.success === false) {
+    // 后端统一响应: { code, message, data }
+    if (data.code && data.code !== 200) {
       ElMessage.error(data.message || '请求失败')
       if (data.code === 401) {
         useAuthStore().logout()

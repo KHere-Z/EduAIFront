@@ -98,15 +98,25 @@ async function handleLogin() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
   loading.value = true
-  // 模拟登录 — 后端未启动时走 demo 模式
-  const roleMap = { teacher: 3, student: 4, admin: 1 }
-  const roleType = roleMap[loginType.value] || 3
-  authStore.demoLogin(form.username, roleType, loginType.value)
-  const roleRoutes = { teacher: '/teacher/dashboard', student: '/student/dashboard', admin: '/admin/dashboard' }
-  setTimeout(() => {
-    router.push(roleRoutes[loginType.value] || '/')
+  try {
+    // 优先真登录
+    const res = await authStore.login(form.username, form.password)
+    ElMessage.success(`欢迎回来，${res.user?.realName || form.username}`)
+    const roleType = res.user?.roleType
+    if (roleType === 3) router.push('/teacher/dashboard')
+    else if (roleType === 4) router.push('/student/dashboard')
+    else if (roleType === 1) router.push('/admin/dashboard')
+    else router.push('/')
+  } catch {
+    // 后端未启动 → 模拟登录
+    const roleMap = { teacher: 3, student: 4, admin: 1 }
+    const roleType = roleMap[loginType.value] || 3
+    authStore.demoLogin(form.username, roleType, loginType.value)
+    const roleRoutes = { teacher: '/teacher/dashboard', student: '/student/dashboard', admin: '/admin/dashboard' }
+    setTimeout(() => router.push(roleRoutes[loginType.value] || '/'), 400)
+  } finally {
     loading.value = false
-  }, 400)
+  }
 }
 </script>
 

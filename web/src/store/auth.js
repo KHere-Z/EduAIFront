@@ -8,7 +8,7 @@ export const useAuthStore = defineStore('auth', () => {
   const permissions = ref([])
 
   const isLoggedIn = computed(() => !!token.value)
-  const role = computed(() => user.value?.role_type)
+  const role = computed(() => user.value?.roleType)
   const isTeacher = computed(() => role.value === 3)
   const isStudent = computed(() => role.value === 4)
   const isAdmin = computed(() => role.value === 1)
@@ -40,7 +40,7 @@ export const useAuthStore = defineStore('auth', () => {
       'all': ['math', 'physics', 'chemistry', 'biology', 'chinese', 'english', 'history', 'politics', 'geography']
     }
     const subjects = subjectMap[username] || ['math', 'physics']
-    const fakeUser = { id: roleType * 100, username, real_name: username, role_type: roleType, role_name: roleName, org_id: 1, status: 1, subjects }
+    const fakeUser = { id: roleType * 100, username, realName: username, roleType, subjects }
     token.value = fakeToken
     user.value = fakeUser
     localStorage.setItem('token', fakeToken)

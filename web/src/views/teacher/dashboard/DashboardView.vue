@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <div>
-        <h2>👋 下午好，{{ auth.user?.real_name || '老师' }}</h2>
+        <h2>👋 下午好，{{ auth.user?.realName || '老师' }}</h2>
         <p>今天是 {{ today }}，共 {{ stats.todayClasses }} 节课待完成</p>
       </div>
       <el-button type="primary" size="large" @click="$router.push('/coach/classroom')">
