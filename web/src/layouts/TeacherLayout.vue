@@ -29,8 +29,8 @@ const subjects = computed(() =>
 )
 
 function subjectLink(subject) {
-  // 英语跳到课堂管理，其他学科跳到错题整理
-  if (subject === 'english') return '/teacher/classroom'
+  // 英语跳到英语学科中心首页，其他学科跳到错题整理
+  if (subject === 'english') return '/teacher/english/home'
   return `/teacher/subject/${subject}/wrong-questions`
 }
 

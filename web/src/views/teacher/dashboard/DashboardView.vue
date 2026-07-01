@@ -47,7 +47,7 @@
               v-for="s in subjects"
               :key="s.value"
               class="subject-chip"
-              @click="$router.push(s.value === 'english' ? '/teacher/classroom' : `/teacher/subject/${s.value}/wrong-questions`)"
+              @click="$router.push(s.value === 'english' ? '/teacher/english/home' : `/teacher/subject/${s.value}/wrong-questions`)"
             >{{ s.icon }} {{ s.label }}</div>
           </div>
         </el-card>

@@ -12,7 +12,10 @@ const routes = [
     children: [
       { path: '', redirect: '/teacher/dashboard' },
       { path: 'dashboard', name: 'TeacherDashboard', component: () => import('@/views/teacher/dashboard/DashboardView.vue'), meta: { title: '工作台' } },
-      // 英语
+      // 英语首页
+      { path: 'english/home', component: () => import('@/views/teacher/english/EnglishHome.vue'), meta: { title: '英语学科中心' } },
+      { path: 'english/word-progress', component: () => import('@/views/teacher/english/WordProgress.vue'), meta: { title: '单词学习进度' } },
+      // 英语功能页
       { path: 'classroom',   component: () => import('@/views/teacher/english/ClassroomView.vue'),   meta: { title: '课堂管理' } },
       { path: 'vocab-test',  component: () => import('@/views/teacher/english/VocabTestView.vue'),   meta: { title: '词汇测试' } },
       { path: 'word-memorize',component: () => import('@/views/teacher/english/WordMemorize.vue'),   meta: { title: '单词记忆' } },
