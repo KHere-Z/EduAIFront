@@ -19,7 +19,8 @@
 
 - **前端**：Vue 3 + Element Plus + Pinia + Vite · `http://localhost:5173`
 - **后端**：Spring Boot 3.4.5 + JDK 21 + Maven 16模块 · `http://localhost:8080`
-- **仓库**：`https://github.com/KHere-Z/EduAI` · 分支 `dev/20260630`
+- **前端仓库**：`https://github.com/KHere-Z/EduAIFront`
+- **后端仓库**：`https://github.com/KHere-Z/EduAI`
 - **开发服务器**：当前运行在 `localhost:5173`（`npm run dev`）
 
 ## 二、进度
@@ -149,16 +150,22 @@ score-statistics  → 成绩统计（4核心指标+分布+明细）
 
 ## 七、英语学科（参照 airunword.com · 已移除蓝思值）
 
-```
-/teacher/classroom        课堂管理
-/teacher/vocab-test       词汇测试
-/teacher/word-memorize    单词记忆
-/teacher/ai-reading       AI阅读理解
-/teacher/ai-dialogue      AI情境口语
-/teacher/grammar          语法体系
-/teacher/sentence-practice 造句练习
-/teacher/feedback         学习反馈
-```
+英语已整合到学科中心，与其他学科并列。点击英语进入英语学科首页。
+
+### 英语功能页面
+
+| 页面 | 路由 | 说明 |
+|------|------|------|
+| 英语首页 | `/teacher/english/home` | Dashboard + 8功能入口 + 单词进度概览 |
+| 课堂管理 | `/teacher/classroom` | 创建班级/排课/学生记录 |
+| 词汇测试 | `/teacher/vocab-test` | 选词库→组卷→历史 |
+| 单词记忆 | `/teacher/word-memorize` | 学词→复习→艾宾浩斯 |
+| AI 阅读理解 | `/teacher/ai-reading` | 文章→答题→AI批改 |
+| AI 情境口语 | `/teacher/ai-dialogue` | 场景→对话→AI评测 |
+| 语法体系 | `/teacher/grammar` | 分类·手风琴·公式 |
+| 造句练习 | `/teacher/sentence-practice` | 选语法→造句→批改 |
+| 学习反馈 | `/teacher/feedback` | 强弱项·AI建议·周报 |
+| 单词进度 | `/teacher/english/word-progress` | **NEW** 学员单词掌握率/打卡/明细 |
 
 ## 八、前后端约定
 
@@ -198,6 +205,7 @@ score-statistics  → 成绩统计（4核心指标+分布+明细）
 > 2026-06-30: ④英语DB设计(14表) + 8个英语老师端页面完整实现
 > 2026-06-30: 老师端按任教学科动态菜单 — user.subjects驱动侧边栏+英语条件显示
 > 2026-06-30: Playwright + webapp-testing 测试体系安装，32页自动化测试通过
+> 2026-07-02: 英语整合入学���中心 + 英语首页(EnglishHome) + 学员单词学习进度(WordProgress)
 > 2026-06-30: MySQL 配置完成 — 3表(users/teachers/organization) + 5个测试账号
 > 2026-06-30: 前后端登录联调 — 后端 Sa-Token+BCrypt 完成，前端对接代码就绪 docs/frontend-integration/
 > 2026-06-30: 项目结构优化 — 清理16模块空占位目录，补全 .gitkeep，统一目录规范
