@@ -9,6 +9,8 @@ const http = axios.create({
 })
 
 http.interceptors.request.use(config => {
+  // 显式设置 UTF-8 编码（中文 Windows 浏览器可能默认 GBK）
+  config.headers['Content-Type'] = 'application/json;charset=UTF-8'
   const token = localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`

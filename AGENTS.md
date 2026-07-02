@@ -30,8 +30,8 @@
 | ① | 需求文档 & 技术栈 | ✅ `docs/spec/01-requirements.md` |
 | ② | 项目架构设计 | ✅ `docs/spec/02-architecture.md` |
 | ③ | 页面设计 & 前端编写 | ✅ `docs/spec/03-api-spec.md` |
-| ④ | 数据库设计与建立 | 🟡 认证3表✅ · 英语14表✅ · 学生管理3表✅ |
-| ⑤ | 后端接口开发 | 🟡 登录API✅ · 学生GET✅ · POST 500待修复 |
+| ④ | 数据库设计与建立 | 🟢 认证3表✅ · 英语14表✅ · 学生管理4表✅（v2: students/teacher_student/enrollment/session） |
+| ⑤ | 后端接口开发 | 🟢 登录API✅ · 学生CRUD 全7接口✅（v2: 通过 teacher_student 关系表） |
 | ⑥ | 配置 AI 服务（DeepSeek） | ⏳ |
 | ⑦ | 部署上线 | ⏳ |
 
@@ -212,14 +212,52 @@ score-statistics  → 成绩统计（4核心指标+分布+明细）
 > 2026-06-30: MySQL 配置完成 — 3表(users/teachers/organization) + 5个测试账号
 > 2026-06-30: 前后端登录联调 — 后端 Sa-Token 完成（明文密码比对），前端对接代码就绪 docs/frontend-integration/
 > 2026-06-30: 项目结构优化 — 清理16模块空占位目录，补全 .gitkeep，统一目录规范
-> 2026-07-02: 学生管理后端完成 — students/enrollment/session 3表 + 7个API端点 + 日历排课查询
+> 2026-07-02: 学生管理后端完成 — students/enrollment/session 3表 + 7个API端点(含日历)
+> 2026-07-02: 修复 POST 500 — Entity 改为双向映射(@ManyToOne)，解决 Hibernate INSERT 缺 FK 问题
+> 2026-07-02: 学生管理前端交互完善 — 排课按钮/课时联动/课程完成/清空排课归零
+> 2026-07-02: 修复 GlobalExceptionHandler — 改用 ResponseEntity 确保 401/403 正确返回到前端
+> 2026-07-02: 修复请求编码 — 加 server.servlet.encoding.force=true，强制 UTF-8 解码（前端 GBK→UTF-8）
+> 2026-07-02: **v2 重构** — students 精简为全局档案 + 新增 teacher_student 关系表 + enrollment FK 改为指向 teacher_student
+> 2026-07-02: v2 修复: POST 不再重复创建 Student（按姓名+学校去重），同一学生可被多个老师添加不冲突
+> 2026-07-02: ✅ v2 数据库迁移完成 — 4表(students/teacher_student/enrollment/session) + 测试数据已就绪
 
 ---
 
 ## 十一、学生管理 API（前端对接）
+n### 前端交互逻辑
 
-> **后端状态**: ✅ 已实现 · **前端页面**: `/teacher/students`（就绪）  
-> **数据库**: students / student_enrollment / student_session 三表，测试数据已插入
+- **排课按钮**: 下拉选择已有学生 → 选科目 → 日历点日期 → 填时间段 → 确认
+- **课时联动**: 排课保存后设置初始课时 · 点✅完成自动-1 · 清空排课归零
+- **清空排课**: PUT enrollments:[] + hoursLeft:0，保留 teacher_student 关系
+- **课程完成**: 点击✅ → UI变蓝 · 当日全部完成→日历提前变绿
+- **调课**: 📝按钮 → 弹窗选新日期+时间段
+- **删除**: 不再支持DELETE，仅清空排课（保留学生关系）
+
+> **后端状态**: ✅ 已实现 (v2) · 数据库已迁移 · **前端页面**: `/teacher/students`（就绪）  
+> **数据库 v2**: students(全局档案) / teacher_student(关系+课时) / student_enrollment / student_session  
+> **测试**: allsub(6/赵老师) 登录 → GET/POST/DELETE 全部可用，已预置张顺仪(英语15次+数学15次)  
+
+### v2 行为变化（前端需知）
+
+| 行为 | v1（旧） | v2（新） |
+|------|----------|----------|
+| 添加学生 | 每次 POST 都创建新 Student 行 | 按姓名+学校查找已有 Student，不存在才创建；然后创建 teacher_student 关系 |
+| 重复添加 | 同一老师可重复添加同一学生（产生多条 students 记录） | 同一老师对同一学生只能添加一次，重复添加返回 **400 "该学生已在您的列表中"** |
+| 多老师共享 | 不同老师各自存一份 Student | 不同老师共享同一个 Student 档案，各自维护独立的课时和科目 |
+| 响应中的 id | student.id | **teacher_student.id**（关系表主键） |
+| 课时 | students.hours_left（学生维度） | teacher_student.hours_left（每个老师-学生组合独立） |
+
+### 前端适配检查清单
+
+> **好消息：API 请求/响应格式完全不变，大概率不需要改代码。**  
+> 建议逐项验证：
+
+1. **添加学生** — 正常流程不变，新行为：同一老师重复添加同一姓名+学校的学生时返回 400，前端应展示错误提示
+2. **学生列表** — 响应中 `id` 现在是 teacher_student 的 ID，如果前端用这个 id 做 key 或传给 DELETE/PATCH，继续正常工作
+3. **课时加减** — `PATCH /{id}/hours` 操作的 id 是 teacher_student.id，行为不变
+4. **删除学生** — `DELETE /{id}` 删除的是 teacher_student 关系（不影响 Student 档案本身和其他老师的该学生记录）
+5. **学生选择器** — 如果要搜索"系统中所有学生"（跨老师），需新增接口（目前 GET 只返回当前老师的学生）。如需此功能请联系后端加接口
+6. **日历** — 不变，仍按 teacherId + 月份查询
 
 ### API 概览
 
@@ -286,5 +324,7 @@ score-statistics  → 成绩统计（4核心指标+分布+明细）
 
 ### 测试数据
 
-以 coach（id=2，密码 coach123）登录后调用 `GET /api/v1/students` 即可看到 1 条示例数据：
-- 张三，初一，第一实验中学，剩余15课时，报了英语+数学两科，7月3日和7月5日有排课
+以 **allsub**（id=6，密码 allsub123）登录后调用 `GET /api/v1/students` 即可看到 1 条示例数据：
+- 张顺仪，男，初一，夏港中学，剩余 15 课时，报了英语(14次排课) + 数学(1次排课)
+
+以 **coach**（id=2，密码 coach123）登录看到空列表（张顺仪属于 allsub），需自己 POST 添加。

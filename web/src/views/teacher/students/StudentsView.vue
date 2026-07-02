@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <div><h2>👥 学生信息管理</h2><p>管理学员档案 · 课时追踪 · 排课日历</p></div>
-      <el-button type="primary" @click="openAdd"><el-icon><Plus /></el-icon>添加学生</el-button>
+      <el-button type="primary" @click="openSchedule"><el-icon><Calendar /></el-icon>排课</el-button>
     </div>
 
     <!-- 统计 -->
@@ -41,7 +41,7 @@
         <el-table-column label="操作" width="110" fixed="right" align="center">
           <template #default="{row,$index}">
             <el-button size="small" text type="primary" @click="editStudent(row,$index)">编辑</el-button>
-            <el-button size="small" text type="danger" @click="deleteStudent(row)">删除</el-button>
+            <el-button size="small" text type="warning" @click="clearEnrollments(row)">清空排课</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -98,13 +98,12 @@
       </el-col>
     </el-row>
 
-    <!-- 添加/编辑弹窗 -->
-    <el-dialog v-model="showForm" :title="editingId ? '编辑学生' : '添加学生'" width="760px" destroy-on-close>
+    <!-- 排课弹窗 -->
+    <el-dialog v-model="showForm" title="排课" width="760px" destroy-on-close>
       <el-form :model="form" label-width="80px" label-position="right">
-        <!-- 选择学生（从数据库调取） -->
         <el-form-item label="选择学生">
-          <el-select v-model="selectedStudentId" filterable remote :remote-method="searchAllStudents" placeholder="输入姓名搜索..." style="width:100%" @change="onStudentSelect" clearable>
-            <el-option v-for="s in allStudentList" :key="s.id" :label="`${s.name} · ${s.grade} · ${s.school||''}`" :value="s.id" />
+          <el-select v-model="selectedStudentId" filterable placeholder="选择已有学生..." style="width:100%" @change="onStudentSelect" clearable>
+            <el-option v-for="s in students" :key="s.id" :label="`${s.name} · ${s.grade} · ${s.school||''} · 余${s.hoursLeft||0}课时`" :value="s.id" />
           </el-select>
         </el-form-item>
 
@@ -115,13 +114,13 @@
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="联系方式"><el-input :model-value="form.contact" disabled /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="剩余课时"><el-input-number v-model="form.hoursLeft" :min="0" controls-position="right" style="width:100%" /></el-form-item></el-col>
-        </el-row>
-        <el-row :gutter="16">
           <el-col :span="12"><el-form-item label="年级"><el-input :model-value="form.grade" disabled /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="学校"><el-input :model-value="form.school" disabled /></el-form-item></el-col>
         </el-row>
-        <el-form-item label="报名时间"><el-date-picker v-model="form.regDate" type="date" style="width:100%" value-format="YYYY-MM-DD" /></el-form-item>
+        <el-form-item label="学校"><el-input :model-value="form.school" disabled /></el-form-item>
+        <el-row :gutter="16">
+          <el-col :span="12"><el-form-item label="剩余课时"><el-input-number v-model="form.hoursLeft" :min="0" controls-position="right" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="报名时间"><el-date-picker v-model="form.regDate" type="date" style="width:100%" value-format="YYYY-MM-DD" /></el-form-item></el-col>
+        </el-row>
 
         <el-divider content-position="left">报名科目 & 排课</el-divider>
         <div v-for="(enr, ei) in form.enrollments" :key="ei" class="enroll-block">
@@ -178,9 +177,9 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { Search, Plus, ArrowLeft, ArrowRight, Check } from '@element-plus/icons-vue'
+import { Search, Plus, ArrowLeft, ArrowRight, Check, Calendar } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getStudents, createStudent, updateStudent, deleteStudent as delStudent, adjustHours as apiAdjustHours } from '@/api/common/students'
+import { getStudents, createStudent, updateStudent, adjustHours as apiAdjustHours } from '@/api/common/students'
 
 const subjectTags = { '英语':'success', '语文':'warning', '数学':'danger', '物理':'info', '化学':'', '生物':'success', '历史':'warning', '政治':'danger', '地理':'info' }
 const subjectList = ['英语','语文','数学','物理','化学','生物','历史','政治','地理']
@@ -196,22 +195,22 @@ const form = reactive({ name:'', gender:'男', contact:'', hoursLeft:20, grade:'
 
 // 学生选择器（从数据库调取所有学生）
 const selectedStudentId = ref(null)
-const allStudentList = ref([])
-async function searchAllStudents(query) {
-  if (!query || query.length < 1) { allStudentList.value = []; return }
-  try {
-    const res = await getStudents({ page: 1, pageSize: 50, keyword: query })
-    allStudentList.value = (res.list || []).filter(s => s.id)
-  } catch { allStudentList.value = [] }
-}
 function onStudentSelect(id) {
   if (!id) return
-  const s = allStudentList.value.find(x => x.id === id)
-  if (s) {
-    form.name = s.name || ''; form.gender = s.gender || '男'; form.contact = s.contact || ''
-    form.grade = s.grade || ''; form.school = s.school || ''; form.regDate = s.regDate || ''
-    if (s.hoursLeft !== undefined) form.hoursLeft = s.hoursLeft
-  }
+  const s = students.value.find(x => x.id == id)
+  if (!s) return
+  form.name = s.name || ''; form.gender = s.gender || '男'; form.contact = s.contact || ''
+  form.hoursLeft = s.hoursLeft || 0; form.grade = s.grade || ''; form.school = s.school || ''; form.regDate = s.regDate || ''
+  editingId.value = s.id
+  // 保留已有 enrollments，追加空行
+  form.enrollments = [
+    ...(s.enrollments || []).map(e => ({
+      subject: e.subject,
+      batches: sessionsToBatches(e),
+      _pending: [], _timeStart: '14', _timeEnd: '16'
+    })),
+    newEnrollment()
+  ]
 }
 
 // ===== 从后端加载数据 =====
@@ -268,13 +267,13 @@ async function adjustHours(row, delta) {
 }
 
 // ===== 表单 CRUD =====
-function openAdd() {
-  editingId.value = null; selectedStudentId.value = null; allStudentList.value = []
+function openSchedule() {
+  editingId.value = null; selectedStudentId.value = null
   Object.assign(form, { name:'', gender:'男', contact:'', hoursLeft:20, grade:'初一', school:'', regDate:'', enrollments:[newEnrollment()] })
   showForm.value = true
 }
 function editStudent(row) {
-  editingId.value = row.id
+  editingId.value = row.id; selectedStudentId.value = null
   form.name = row.name || ''; form.gender = row.gender || '男'; form.contact = row.contact || ''
   form.hoursLeft = row.hoursLeft || 0; form.grade = row.grade || ''; form.school = row.school || ''; form.regDate = row.regDate || ''
   form.enrollments = (row.enrollments||[]).map(e => {
@@ -332,11 +331,11 @@ function sessionsToBatches(enr) {
 }
 
 async function save() {
-  if (!form.name) return ElMessage.warning('请输入姓名')
+  if (!form.name) return ElMessage.warning('请选择学生')
   saving.value = true
   const payload = {
-    name: form.name, gender: form.gender, contact: form.contact, hoursLeft: form.hoursLeft,
-    grade: form.grade, school: form.school, regDate: form.regDate,
+    name: form.name, gender: form.gender, contact: form.contact,
+    hoursLeft: form.hoursLeft, grade: form.grade, school: form.school, regDate: form.regDate,
     enrollments: form.enrollments.map(e => ({
       subject: e.subject,
       sessions: batchesToSessions(e).map(s => ({ classDate: s.date, startTime: s.start, endTime: s.end }))
@@ -352,10 +351,18 @@ async function save() {
   } finally { saving.value = false }
 }
 
-async function deleteStudent(row) {
-  await ElMessageBox.confirm('确定删除该学生？', '确认', { type: 'warning' })
-  try { await delStudent(row.id); ElMessage.success('已删除'); await loadStudents() }
-  catch (e) { ElMessage.error(e.message || '删除失败') }
+async function clearEnrollments(row) {
+  await ElMessageBox.confirm('确定清空该学生的所有排课信息？（学生关系保留）', '确认', { type: 'warning' })
+  try {
+    row.hoursLeft = 0
+    await updateStudent(row.id, {
+      name: row.name, gender: row.gender, contact: row.contact,
+      hoursLeft: 0, grade: row.grade, school: row.school, regDate: row.regDate,
+      enrollments: []
+    })
+    ElMessage.success('排课已清空，学生仍保留')
+    await loadStudents()
+  } catch (e) { ElMessage.error(e.message || '清空失败') }
 }
 
 // ===== 主日历 =====
@@ -364,9 +371,17 @@ const completedSessions = ref(new Set())
 
 function isSessionCompleted(sessionId) { return completedSessions.value.has(sessionId) }
 function toggleSessionComplete(sessionId) {
-  if (completedSessions.value.has(sessionId)) { completedSessions.value.delete(sessionId) }
-  else { completedSessions.value.add(sessionId) }
-  // trigger reactivity
+  const sessionItem = allSessions.value.find(x => x.id === sessionId)
+  if (!sessionItem) return
+  if (completedSessions.value.has(sessionId)) {
+    // 取消完成：恢复课时
+    completedSessions.value.delete(sessionId)
+    sessionItem.student.hoursLeft = (sessionItem.student.hoursLeft || 0) + 1
+  } else {
+    // 标记完成：扣减课时
+    completedSessions.value.add(sessionId)
+    sessionItem.student.hoursLeft = Math.max(0, (sessionItem.student.hoursLeft || 0) - 1)
+  }
   completedSessions.value = new Set(completedSessions.value)
 }
 
