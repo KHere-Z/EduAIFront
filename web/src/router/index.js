@@ -12,6 +12,8 @@ const routes = [
     children: [
       { path: '', redirect: '/teacher/dashboard' },
       { path: 'dashboard', name: 'TeacherDashboard', component: () => import('@/views/teacher/dashboard/DashboardView.vue'), meta: { title: '工作台' } },
+      // 学生管理
+      { path: 'students', name: 'TeacherStudents', component: () => import('@/views/teacher/students/StudentsView.vue'), meta: { title: '学生信息管理' } },
       // 英语首页
       { path: 'english/home', component: () => import('@/views/teacher/english/EnglishHome.vue'), meta: { title: '英语学科中心' } },
       { path: 'english/word-progress', component: () => import('@/views/teacher/english/WordProgress.vue'), meta: { title: '单词学习进度' } },

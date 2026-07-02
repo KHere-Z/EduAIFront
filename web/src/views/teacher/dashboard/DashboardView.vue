@@ -3,10 +3,10 @@
     <div class="page-header">
       <div>
         <h2>👋 下午好，{{ auth.user?.realName || '老师' }}</h2>
-        <p>今天是 {{ today }}，共 {{ stats.todayClasses }} 节课待完成</p>
+        <p>今天是 {{ today }}，欢迎使用安文AI教育</p>
       </div>
-      <el-button type="primary" size="large" @click="$router.push('/coach/classroom')">
-        <el-icon style="margin-right:6px"><Reading /></el-icon>开始上课
+      <el-button type="primary" size="large" @click="$router.push('/teacher/students')">
+        <el-icon style="margin-right:6px"><User /></el-icon>学生信息
       </el-button>
     </div>
 
@@ -23,7 +23,6 @@
     </el-row>
 
     <el-row :gutter="20">
-      <!-- 快捷操作 -->
       <el-col :span="8">
         <el-card>
           <template #header><span class="card-title">⚡ 快捷操作</span></template>
@@ -38,7 +37,6 @@
         </el-card>
       </el-col>
 
-      <!-- 学科入口 -->
       <el-col :span="8">
         <el-card>
           <template #header><span class="card-title">📚 学科中心</span></template>
@@ -53,7 +51,6 @@
         </el-card>
       </el-col>
 
-      <!-- 今日概览 -->
       <el-col :span="8">
         <el-card>
           <template #header><span class="card-title">📊 今日概览</span></template>
@@ -63,49 +60,53 @@
         </el-card>
       </el-col>
     </el-row>
+
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
+import { getStudents } from '@/api/common/students'
 import { useAuthStore } from '@/store/auth'
+
 const auth = useAuthStore()
+const studentCount = ref(0); const todaySessionCount = ref(0); const totalHoursLeft = ref(0)
+const todayStr = new Date().toISOString().slice(0, 10)
+async function loadStats() {
+  try {
+    const res = await getStudents({ page: 1, pageSize: 200 })
+    const list = res.list || []
+    studentCount.value = list.length
+    totalHoursLeft.value = list.reduce((s, r) => s + (r.hoursLeft || 0), 0)
+    todaySessionCount.value = list.reduce((count, s) => count + (s.enrollments || []).reduce((c, e) => c + (e.sessions || []).filter(ses => (ses.date || ses.classDate) === todayStr).length, 0), 0)
+  } catch {}
+}
+onMounted(loadStats)
 
 const today = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'long' })
 
-const stats = {
-  todayClasses: 4,
-  weeklyHours: 18,
-  newStudents: 3,
-  completedTests: 12
-}
-
-const statCards = [
-  { label:'我的学员', value:28, icon:'User',    bg:'#EEF2FF' },
-  { label:'今日课堂', value:4,  icon:'Reading', bg:'#ECFDF5' },
-  { label:'本周课时', value:18, icon:'Calendar',bg:'#FFF7ED' },
-  { label:'待批作业', value:7,  icon:'Edit',    bg:'#FEF2F2' }
-]
+const statCards = computed(() => [
+  { label:'我的学员', value: studentCount.value, icon:'User',    bg:'#EEF2FF' },
+  { label:'今日课堂', value: todaySessionCount.value,  icon:'Reading', bg:'#ECFDF5' },
+  { label:'剩余课时', value: totalHoursLeft.value, icon:'Calendar',bg:'#FFF7ED' },
+  { label:'任教学科', value: auth.user?.subjects?.length || 0, icon:'Collection', bg:'#FEF2F2' }
+])
 
 const subjectMeta = { chinese:{label:'语文',icon:'📝'}, math:{label:'数学',icon:'📐'}, english:{label:'英语',icon:'📖'}, physics:{label:'物理',icon:'⚛️'}, chemistry:{label:'化学',icon:'🧪'}, biology:{label:'生物',icon:'🧬'}, history:{label:'历史',icon:'📜'}, politics:{label:'政治',icon:'⚖️'}, geography:{label:'地理',icon:'🌍'} }
 
 const teacherSubjects = computed(() => auth.user?.subjects || [])
-
-const subjects = computed(() =>
-  teacherSubjects.value.filter(k => subjectMeta[k]).map(k => ({ value:k, ...subjectMeta[k] }))
-)
-
+const subjects = computed(() => teacherSubjects.value.filter(k => subjectMeta[k]).map(k => ({ value:k, ...subjectMeta[k] })))
 const actions = [
   { text:'学科中心', icon:'Collection', path:'/teacher/dashboard', bg:'#EEF2FF' },
   { text:'学习反馈', icon:'ChatLineSquare', path:'/teacher/feedback', bg:'#F0FDFA' }
 ]
+const todayStats = computed(() => [
+  { label:'学员总数', value: studentCount.value + ' 人' },
+  { label:'今日课时', value: todaySessionCount.value + ' 节' },
+  { label:'总剩余课时', value: totalHoursLeft.value + ' 节' },
+  { label:'任教学科', value: (auth.user?.subjects?.length || 0) + ' 科' }
+])
 
-const todayStats = [
-  { label:'本月新增学员', value:'3 人' },
-  { label:'本月课时完成', value:'42 节' },
-  { label:'平均出勤率',   value:'96%' },
-  { label:'学员满意度',   value:'4.8/5' }
-]
 </script>
 
 <style scoped>

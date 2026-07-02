@@ -5,6 +5,7 @@
       <nav class="sidebar-nav">
         <el-menu :default-active="activeMenu" router>
           <el-menu-item index="/teacher/dashboard"><el-icon><DataAnalysis /></el-icon>工作台</el-menu-item>
+          <el-menu-item index="/teacher/students"><el-icon><User /></el-icon>学生信息</el-menu-item>
           <el-sub-menu index="subjects">
             <template #title><el-icon><Collection /></el-icon>学科中心</template>
             <el-menu-item v-for="s in subjects" :key="s.value" :index="subjectLink(s.value)">{{ s.icon }} {{ s.label }}</el-menu-item>

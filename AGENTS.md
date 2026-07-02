@@ -30,8 +30,8 @@
 | ① | 需求文档 & 技术栈 | ✅ `docs/spec/01-requirements.md` |
 | ② | 项目架构设计 | ✅ `docs/spec/02-architecture.md` |
 | ③ | 页面设计 & 前端编写 | ✅ `docs/spec/03-api-spec.md` |
-| ④ | 数据库设计与建立 | ✅ MySQL 8.0 运行中 · users/teachers/organization 3表+测试数据 |
-| ⑤ | 后端接口开发 | 🟡 认证登录完成（Sa-Token + BCrypt），前端联调代码就绪 |
+| ④ | 数据库设计与建立 | 🟡 认证3表✅ · 英语14表✅ · 学生管理3表✅ |
+| ⑤ | 后端接口开发 | 🟡 登录API✅ · 学生GET✅ · POST 500待修复 |
 | ⑥ | 配置 AI 服务（DeepSeek） | ⏳ |
 | ⑦ | 部署上线 | ⏳ |
 
@@ -93,6 +93,7 @@ EduAI/                              ← Git 仓库
 │   │   ├── 03-api-spec.md
 │   │   ├── 04-database-auth.md
 │   │   └── 04-database-english.md
+│   │   └── 05-database-student.md     学生管理DB(3表+API)
 │   ├── sql/
 │   │   └── init-database.sql        数据库初始化脚本
 │   └── frontend-integration/        前端对接代码（复制到 web/ 项目）
@@ -206,6 +207,84 @@ score-statistics  → 成绩统计（4核心指标+分布+明细）
 > 2026-06-30: 老师端按任教学科动态菜单 — user.subjects驱动侧边栏+英语条件显示
 > 2026-06-30: Playwright + webapp-testing 测试体系安装，32页自动化测试通过
 > 2026-07-02: 英语整合入学���中心 + 英语首页(EnglishHome) + 学员单词学习进度(WordProgress)
+> 2026-07-02: 学生信息管理DB设计(students/enrollment/session 3表) + 完整API接口文档
+> 2026-07-02: 学生管理页全功能 — 批量排课/课程完成标记/调课/学生选择器/真实数据对接
 > 2026-06-30: MySQL 配置完成 — 3表(users/teachers/organization) + 5个测试账号
-> 2026-06-30: 前后端登录联调 — 后端 Sa-Token+BCrypt 完成，前端对接代码就绪 docs/frontend-integration/
+> 2026-06-30: 前后端登录联调 — 后端 Sa-Token 完成（明文密码比对），前端对接代码就绪 docs/frontend-integration/
 > 2026-06-30: 项目结构优化 — 清理16模块空占位目录，补全 .gitkeep，统一目录规范
+> 2026-07-02: 学生管理后端完成 — students/enrollment/session 3表 + 7个API端点 + 日历排课查询
+
+---
+
+## 十一、学生管理 API（前端对接）
+
+> **后端状态**: ✅ 已实现 · **前端页面**: `/teacher/students`（就绪）  
+> **数据库**: students / student_enrollment / student_session 三表，测试数据已插入
+
+### API 概览
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/v1/students` | 分页列表（keyword/grade/subject 筛选） |
+| POST | `/api/v1/students` | 新增学生（含科目+排课嵌套） |
+| GET | `/api/v1/students/{id}` | 学生详情 |
+| PUT | `/api/v1/students/{id}` | 更新学生（先删后插 enrollments） |
+| DELETE | `/api/v1/students/{id}` | 删除学生（级联删除科目和排课） |
+| PATCH | `/api/v1/students/{id}/hours` | 课时加减 `{ "delta": -1 }` |
+| GET | `/api/v1/students/calendar` | 日历排课 `?year=2026&month=7&teacherId=` |
+
+> 全部需要登录（Sa-Token），学生按老师隔离
+
+### 请求/响应格式
+
+**POST / PUT 请求体**（`application/json`）：
+```json
+{
+  "name": "张三",
+  "gender": "男",
+  "contact": "13800001111",
+  "hoursLeft": 15,
+  "grade": "初一",
+  "school": "第一实验中学",
+  "regDate": "2026-03-15",
+  "enrollments": [
+    {
+      "subject": "英语",
+      "sessions": [
+        { "classDate": "2026-07-03", "startTime": "14", "endTime": "16" },
+        { "classDate": "2026-07-05", "startTime": "14", "endTime": "16" }
+      ]
+    }
+  ]
+}
+```
+
+**GET 列表响应**（`data` 内）：
+```json
+{
+  "list": [{ "id": 1, "name": "张三", ..., "enrollments": [...] }],
+  "total": 28, "page": 1, "pageSize": 20
+}
+```
+
+**PATCH 课时**：`{ "delta": -1 }`（上课-1，充值+N）
+
+**GET 日历响应**：
+```json
+{
+  "dates": {
+    "2026-07-03": [
+      { "studentId": 1, "studentName": "张三", "subject": "英语", "startTime": "14", "endTime": "16" }
+    ]
+  }
+}
+```
+
+### 年级可选值
+
+`一年级` `二年级` `三年级` `四年级` `五年级` `六年级` `初一` `初二` `初三` `高一` `高二` `高三`
+
+### 测试数据
+
+以 coach（id=2，密码 coach123）登录后调用 `GET /api/v1/students` 即可看到 1 条示例数据：
+- 张三，初一，第一实验中学，剩余15课时，报了英语+数学两科，7月3日和7月5日有排课
