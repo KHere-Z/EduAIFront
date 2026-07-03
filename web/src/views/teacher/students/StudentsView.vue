@@ -2,8 +2,45 @@
   <div class="page-container">
     <div class="page-header">
       <div><h2>👥 学生信息管理</h2><p>管理学员档案 · 课时追踪 · 排课日历</p></div>
-      <el-button type="primary" @click="openSchedule"><el-icon><Calendar /></el-icon>排课</el-button>
+      <div style="display:flex;gap:10px">
+        <el-button type="primary" @click="openSchedule"><el-icon><Calendar /></el-icon>排课</el-button>
+        <el-badge :value="pendingCount" :hidden="pendingCount===0">
+          <el-button @click="showRequests = true"><el-icon><Bell /></el-icon>调课申请</el-button>
+        </el-badge>
+      </div>
     </div>
+
+    <!-- 调课申请弹窗 -->
+    <el-dialog v-model="showRequests" title="📋 调课申请" width="900px">
+      <el-tabs v-model="reqTab">
+        <el-tab-pane label="待处理" :name="'pending'">
+          <el-table :data="pendingRequests" size="small" stripe>
+            <el-table-column prop="studentName" label="学生" width="80"/>
+            <el-table-column label="原时间" width="180"><template #default="{row}">{{ row.oldDate }} {{ row.oldStart }}-{{ row.oldEnd }}</template></el-table-column>
+            <el-table-column label="申请改为" width="180"><template #default="{row}">{{ row.newDate }} {{ row.newStart }}-{{ row.newEnd }}</template></el-table-column>
+            <el-table-column prop="reason" label="原因" min-width="120" show-overflow-tooltip/>
+            <el-table-column label="操作" width="220" align="center">
+              <template #default="{row,$index}">
+                <el-button size="small" type="success" @click="approveRequest($index)">批准</el-button>
+                <el-button size="small" type="warning" @click="deferRequest($index)">待议</el-button>
+                <el-button size="small" type="info" @click="dismissRequest($index)">已处理</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="!pendingRequests.length" description="暂无待处理申请" :image-size="80"/>
+        </el-tab-pane>
+        <el-tab-pane label="待议" :name="'deferred'">
+          <el-table :data="deferredRequests" size="small" stripe>
+            <el-table-column prop="studentName" label="学生" width="80"/>
+            <el-table-column label="原时间" width="180"><template #default="{row}">{{ row.oldDate }} {{ row.oldStart }}-{{ row.oldEnd }}</template></el-table-column>
+            <el-table-column label="申请改为" width="180"><template #default="{row}">{{ row.newDate }} {{ row.newStart }}-{{ row.newEnd }}</template></el-table-column>
+            <el-table-column prop="reason" label="原因" min-width="120" show-overflow-tooltip/>
+            <el-table-column label="操作" width="160" align="center"><template #default="{row,$index}"><el-button size="small" type="success" @click="approveDeferred($index)">批准</el-button><el-button size="small" type="info" @click="dismissDeferred($index)">已处理</el-button></template></el-table-column>
+          </el-table>
+          <el-empty v-if="!deferredRequests.length" description="无待议申请" :image-size="80"/>
+        </el-tab-pane>
+      </el-tabs>
+    </el-dialog>
 
     <!-- 统计 -->
     <el-row :gutter="20" class="mb-lg">
@@ -78,7 +115,7 @@
             <div v-for="s in selectedSessions" :key="s.id" class="schedule-item" :class="{completed: isSessionCompleted(s.id)}">
               <div class="sched-row">
                 <div class="sched-left">
-                  <div class="sched-time">🕐 {{ s.session.start }}:00 - {{ s.session.end }}:00</div>
+                  <div class="sched-time">🕐 {{ s.session.start }}-{{ s.session.end }}</div>
                   <div class="sched-info">
                     <el-tag :type="subjectTags[s.enr.subject]" size="small">{{ s.enr.subject }}</el-tag>
                     <strong>{{ s.student.name }}</strong>
@@ -143,15 +180,15 @@
               <span v-else class="hint">👆 点击日历日期选中</span>
             </div>
             <div class="pending-action" v-if="enr._pending?.length">
-              <el-time-select v-model="enr._timeStart" start="08:00" step="01:00" end="21:00" placeholder="开始" style="width:80px" />
+              <el-time-select v-model="enr._timeStart" start="08:00" step="00:15" end="21:00" placeholder="开始" style="width:100%" />
               <span>—</span>
-              <el-time-select v-model="enr._timeEnd" start="08:00" step="01:00" end="21:00" placeholder="结束" style="width:80px" />
+              <el-time-select v-model="enr._timeEnd" start="08:00" step="00:15" end="21:00" placeholder="结束" style="width:100%" />
               <el-button size="small" type="primary" @click="confirmPendingBatch(ei)">确认</el-button>
             </div>
           </div>
           <div v-for="(batch, bi) in (enr.batches||[])" :key="bi" class="batch-row">
             <span class="batch-dot" :style="{background:batchColors[bi%6]}"></span>
-            <span class="batch-time">{{ batch.start }}:00-{{ batch.end }}:00</span>
+            <span class="batch-time">{{ batch.start }}-{{ batch.end }}</span>
             <el-tag v-for="d in batch.dates" :key="d" size="small" :color="batchColorsLight[bi%6]" effect="plain" closable @close="removeBatchDate(ei,bi,d)" style="margin:1px;color:#333">{{ d }}</el-tag>
             <el-button size="small" type="danger" text @click="removeBatch(ei,bi)">×</el-button>
           </div>
@@ -168,7 +205,7 @@
     <el-dialog v-model="showReschedule" title="调课" width="400px">
       <el-form label-width="80px">
         <el-form-item label="上课日期"><el-date-picker v-model="rescheduleForm.date" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
-        <el-form-item label="上课时间"><div style="display:flex;gap:6px;align-items:center"><el-time-select v-model="rescheduleForm.start" start="08:00" step="01:00" end="21:00" style="width:100%" /> <span>—</span> <el-time-select v-model="rescheduleForm.end" start="08:00" step="01:00" end="21:00" style="width:100%" /></div></el-form-item>
+        <el-form-item label="上课时间"><div style="display:flex;gap:6px;align-items:center"><el-time-select v-model="rescheduleForm.start" start="08:00" step="00:15" end="21:00" style="width:100%" /> <span>—</span> <el-time-select v-model="rescheduleForm.end" start="08:00" step="00:15" end="21:00" style="width:100%" /></div></el-form-item>
       </el-form>
       <template #footer><el-button @click="showReschedule=false">取消</el-button><el-button type="primary" @click="confirmReschedule">确认</el-button></template>
     </el-dialog>
@@ -176,10 +213,49 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { Search, Plus, ArrowLeft, ArrowRight, Check, Calendar } from '@element-plus/icons-vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { Search, Plus, ArrowLeft, ArrowRight, Check, Calendar, Bell } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getStudents, createStudent, updateStudent, adjustHours as apiAdjustHours } from '@/api/common/students'
+
+// === 调课申请管理 ===
+const allRequests = ref([])
+const showRequests = ref(false); const reqTab = ref('pending'); const loadingReq = ref(false)
+const pendingRequests = computed(() => allRequests.value.filter(r=>r.status==='PENDING'))
+const deferredRequests = computed(() => allRequests.value.filter(r=>r.status==='DEFERRED'))
+const pendingCount = computed(() => pendingRequests.value.length)
+
+async function loadReschedules() {
+  loadingReq.value = true
+  try {
+    const { default: http } = await import('@/api/request')
+    const res = await http.get('/teacher/reschedules', { params: { pageSize: 100 } })
+    allRequests.value = res.list || []
+  } catch {}
+  loadingReq.value = false
+}
+watch(showRequests, (v) => { if (v) loadReschedules() })
+
+async function approveRequest(idx) {
+  const r = pendingRequests.value[idx]; if (!r) return
+  try { const { default: http } = await import('@/api/request'); await http.put(`/teacher/reschedules/${r.id}/approve`); ElMessage.success('已批准'); await loadReschedules(); await loadStudents() } catch(e) { ElMessage.error(e.message||'失败') }
+}
+async function deferRequest(idx) {
+  const r = pendingRequests.value[idx]; if (!r) return
+  try { const { default: http } = await import('@/api/request'); await http.put(`/teacher/reschedules/${r.id}/defer`); ElMessage.success('已待议'); await loadReschedules() } catch(e) { ElMessage.error(e.message||'失败') }
+}
+async function dismissRequest(idx) {
+  const r = pendingRequests.value[idx]; if (!r) return
+  try { const { default: http } = await import('@/api/request'); await http.delete(`/teacher/reschedules/${r.id}`); ElMessage.success('已处理'); await loadReschedules() } catch(e) { ElMessage.error(e.message||'失败') }
+}
+async function approveDeferred(idx) {
+  const r = deferredRequests.value[idx]; if (!r) return
+  try { const { default: http } = await import('@/api/request'); await http.put(`/teacher/reschedules/${r.id}/approve`); ElMessage.success('已批准'); await loadReschedules(); await loadStudents() } catch(e) { ElMessage.error(e.message||'失败') }
+}
+async function dismissDeferred(idx) {
+  const r = deferredRequests.value[idx]; if (!r) return
+  try { const { default: http } = await import('@/api/request'); await http.delete(`/teacher/reschedules/${r.id}`); ElMessage.success('已处理'); await loadReschedules() } catch(e) { ElMessage.error(e.message||'失败') }
+}
 
 const subjectTags = { '英语':'success', '语文':'warning', '数学':'danger', '物理':'info', '化学':'', '生物':'success', '历史':'warning', '政治':'danger', '地理':'info' }
 const subjectList = ['英语','语文','数学','物理','化学','生物','历史','政治','地理']
@@ -454,7 +530,7 @@ const selectedSessions=computed(()=>selectedDate.value?allSessions.value.filter(
 .pending-area{margin:10px 0}.pending-dates{margin-bottom:6px}
 .pending-action{display:flex;align-items:center;gap:6px}.hint{color:var(--text-muted);font-size:12px}
 .batch-row{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;font-size:13px}
-.batch-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}.batch-time{font-weight:600;min-width:80px}
+.batch-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}.batch-time{font-weight:600;min-width:100%}
 .card-head{display:flex;justify-content:space-between;align-items:center}.card-title{font-weight:600;font-size:15px}
 .month-nav{display:flex;align-items:center;gap:4px}
 .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);text-align:center}

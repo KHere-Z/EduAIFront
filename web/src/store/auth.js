@@ -49,6 +49,21 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('user', JSON.stringify(fakeUser))
   }
 
+  // 学生登录后补充学科（从后端 /student/enrollments 读取）
+  async function enrichStudentSubjects() {
+    if (user.value?.roleType !== 4) return
+    try {
+      const { default: http } = await import('@/api/request')
+      const res = await http.get('/student/enrollments')
+      const courses = res?.courses || []
+      const allSubjects = [...new Set(courses.map(c => c.subject))]
+      if (allSubjects.length > 0) {
+        user.value = { ...user.value, enrolledSubjects: allSubjects }
+        localStorage.setItem('user', JSON.stringify(user.value))
+      }
+    } catch {}
+  }
+
   function logout() {
     token.value = ''
     user.value = null
@@ -56,5 +71,5 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('user')
   }
 
-  return { token, user, permissions, isLoggedIn, role, isTeacher, isStudent, isAdmin, login, demoLogin, logout, fetchUserInfo }
+  return { token, user, permissions, isLoggedIn, role, isTeacher, isStudent, isAdmin, login, demoLogin, logout, fetchUserInfo, enrichStudentSubjects }
 })

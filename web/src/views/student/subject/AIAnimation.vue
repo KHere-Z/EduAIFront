@@ -1,0 +1,1 @@
+<template><div class="page-container"><div class="page-header"><div><h2>AI动图</h2><p>上传动点题 → AI生成动态演示</p></div></div><el-card><el-empty description="功能开发中，后端API待对接" :image-size="120"/></el-card></div></template>

@@ -22,15 +22,15 @@
 import { computed } from 'vue'; import { useRoute, useRouter } from 'vue-router'; import { useAuthStore } from '@/store/auth'
 const route = useRoute(); const router = useRouter(); const auth = useAuthStore(); const activeMenu = computed(() => route.path)
 
-const subjectMeta = { chinese:{label:'语文',icon:'📝'}, math:{label:'数学',icon:'📐'}, english:{label:'英语',icon:'📖', link:'/teacher/classroom'}, physics:{label:'物理',icon:'⚛️'}, chemistry:{label:'化学',icon:'🧪'}, biology:{label:'生物',icon:'🧬'}, history:{label:'历史',icon:'📜'}, politics:{label:'政治',icon:'⚖️'}, geography:{label:'地理',icon:'🌍'} }
+const zh2en = { '语文':'chinese','数学':'math','英语':'english','物理':'physics','化学':'chemistry','生物':'biology','历史':'history','政治':'politics','地理':'geography' }
+const icons = { '语文':'📝','数学':'📐','英语':'📖','物理':'⚛️','化学':'🧪','生物':'🧬','历史':'📜','政治':'⚖️','地理':'🌍' }
 
 const teacherSubjects = computed(() => auth.user?.subjects || [])
 const subjects = computed(() =>
-  teacherSubjects.value.filter(k => subjectMeta[k]).map(k => ({ value:k, ...subjectMeta[k] }))
+  teacherSubjects.value.filter(s => zh2en[s]).map(s => ({ value:zh2en[s], label:s, icon:icons[s]||'📚' }))
 )
 
 function subjectLink(subject) {
-  // 英语跳到英语学科中心首页，其他学科跳到错题整理
   if (subject === 'english') return '/teacher/english/home'
   return `/teacher/subject/${subject}/wrong-questions`
 }

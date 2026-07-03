@@ -103,8 +103,8 @@ async function handleLogin() {
     const res = await authStore.login(form.username, form.password)
     ElMessage.success(`欢迎回来，${res.user?.realName || form.username}`)
     const roleType = res.user?.roleType
-    if (roleType === 3) router.push('/teacher/dashboard')
-    else if (roleType === 4) router.push('/student/dashboard')
+    if (roleType === 4) { await authStore.enrichStudentSubjects(); router.push('/student/dashboard') }
+    else if (roleType === 3) router.push('/teacher/dashboard')
     else if (roleType === 1) router.push('/admin/dashboard')
     else router.push('/')
   } catch (e) {

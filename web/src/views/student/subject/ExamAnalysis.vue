@@ -1,0 +1,1 @@
+<template><div class="page-container"><div class="page-header"><div><h2>AI试卷分析</h2><p>上传试卷 → AI扣分分析 → 提分建议</p></div></div><el-card><el-empty description="功能开发中，后端API待对接" :image-size="120"/></el-card></div></template>

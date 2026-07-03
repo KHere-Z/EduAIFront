@@ -1,0 +1,1 @@
+<template><div class="page-container"><div class="page-header"><div><h2>AI错题分析</h2><p>拍照/截图上传错题 → AI解析 → 永久保存</p></div></div><el-card><el-empty description="功能开发中，后端API待对接" :image-size="120"/></el-card></div></template>

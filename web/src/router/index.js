@@ -51,7 +51,24 @@ const routes = [
     path: '/student', component: () => import('@/layouts/StudentLayout.vue'), meta: { role: 'student' },
     children: [
       { path: '', redirect: '/student/dashboard' },
+      { path: '', redirect: '/student/dashboard' },
       { path: 'dashboard',      component: () => import('@/views/student/dashboard/DashboardView.vue'),      meta: { title: '学习中心' } },
+      { path: 'schedule',       component: () => import('@/views/student/schedule/ScheduleView.vue'),        meta: { title: '课程表' } },
+      // 学科中心 — 动态路由
+      {
+        path: 'subject/:subject',
+        component: () => import('@/views/student/subject/SubjectHome.vue'),
+        children: [
+          { path: '', redirect: to => `/student/subject/${to.params.subject}/wrong-analysis` },
+          { path: 'wrong-analysis',    component: () => import('@/views/student/subject/WrongAnalysis.vue'),    meta: { title: 'AI错题分析' } },
+          { path: 'exam-analysis',     component: () => import('@/views/student/subject/ExamAnalysis.vue'),      meta: { title: 'AI试卷分析' } },
+          { path: 'question-bank',     component: () => import('@/views/student/subject/QuestionBank.vue'),      meta: { title: '题库' } },
+          { path: 'ai-animation',      component: () => import('@/views/student/subject/AIAnimation.vue'),       meta: { title: 'AI动图' } },
+          { path: 'ai-chat',           component: () => import('@/views/student/subject/AIChat.vue'),            meta: { title: 'AI聊天' } },
+          { path: 'knowledge-points',  component: () => import('@/views/student/subject/KnowledgePoints.vue'),   meta: { title: '知识点' } },
+          { path: 'homework',          component: () => import('@/views/student/subject/Homework.vue'),           meta: { title: '作业' } }
+        ]
+      },
       { path: 'wrong-book',     component: () => import('@/views/student/wrongbook/WrongBook.vue'),          meta: { title: '我的错题本' } },
       { path: 'ai-analysis',    component: () => import('@/views/student/analysis/AIAnalysis.vue'),          meta: { title: 'AI学情分析' } },
       { path: 'scores',         component: () => import('@/views/student/scores/ScoreView.vue'),             meta: { title: '我的成绩' } },
@@ -66,13 +83,11 @@ const routes = [
     path: '/admin', component: () => import('@/layouts/AdminLayout.vue'), meta: { role: 'admin' },
     children: [
       { path: '', redirect: '/admin/dashboard' },
-      { path: 'dashboard',       component: () => import('@/views/admin/dashboard/DashboardView.vue'),         meta: { title: '管理后台' } },
-      { path: 'teachers',        component: () => import('@/views/admin/teachers/TeachersView.vue'),           meta: { title: '老师管理' } },
-      { path: 'students',        component: () => import('@/views/admin/students/StudentsView.vue'),           meta: { title: '学生管理' } },
-      { path: 'subjects',        component: () => import('@/views/admin/subjects/SubjectsView.vue'),           meta: { title: '学科管理' } },
-      { path: 'word-libraries',  component: () => import('@/views/admin/resources/WordLibrariesView.vue'),     meta: { title: '词库管理' } },
-      { path: 'grammar-libraries',component: () => import('@/views/admin/resources/GrammarLibrariesView.vue'),meta: { title: '语法库' } },
-      { path: 'question-bank',   component: () => import('@/views/admin/resources/QuestionBankView.vue'),      meta: { title: '题库总管理' } }
+      { path: 'dashboard', component: () => import('@/views/admin/dashboard/DashboardView.vue'),   meta: { title: '管理后台' } },
+      { path: 'students',  component: () => import('@/views/admin/students/StudentsView.vue'),    meta: { title: '学生管理' } },
+      { path: 'teachers',  component: () => import('@/views/admin/teachers/TeachersView.vue'),    meta: { title: '老师管理' } },
+      { path: 'schedules', component: () => import('@/views/admin/teachers/ScheduleView.vue'),    meta: { title: '排课查看' } },
+      { path: 'settings',  component: () => import('@/views/admin/settings/SettingsView.vue'),    meta: { title: '系统设置' } }
     ]
   },
 
