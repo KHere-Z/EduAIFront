@@ -1,0 +1,1 @@
+<template><div class="page-container"><div class="wa-hero" style="text-align:center;padding:40px"><div class="wa-emoji" style="font-size:48px">📊</div><h2 style="font-size:22px;font-weight:800">近期反馈</h2><p style="color:#999">学习报告 · 老师评语</p></div><el-card><el-empty description="功能开发中，后端API待对接" :image-size="120"/></el-card></div></template>

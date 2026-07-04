@@ -9,11 +9,11 @@ const http = axios.create({
 })
 
 http.interceptors.request.use(config => {
-  // 显式设置 UTF-8 编码（中文 Windows 浏览器可能默认 GBK）
   config.headers['Content-Type'] = 'application/json;charset=UTF-8'
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  // 从 Pinia 内存读取 token，避免多 tab 角色切换时 localStorage 覆盖
+  const authStore = useAuthStore()
+  if (authStore.token) {
+    config.headers.Authorization = `Bearer ${authStore.token}`
   }
   return config
 })

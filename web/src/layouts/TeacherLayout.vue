@@ -32,6 +32,7 @@ const subjects = computed(() =>
 
 function subjectLink(subject) {
   if (subject === 'english') return '/teacher/english/home'
+  if (subject === 'math') return '/teacher/subject/math/manage'
   return `/teacher/subject/${subject}/wrong-questions`
 }
 

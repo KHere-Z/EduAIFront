@@ -14,6 +14,8 @@ const routes = [
       { path: 'dashboard', name: 'TeacherDashboard', component: () => import('@/views/teacher/dashboard/DashboardView.vue'), meta: { title: '工作台' } },
       // 学生管理
       { path: 'students', name: 'TeacherStudents', component: () => import('@/views/teacher/students/StudentsView.vue'), meta: { title: '学生信息管理' } },
+      // 老师端学科管理
+      { path: 'subject/math/manage', component: () => import('@/views/teacher/subject/pages/MathManage.vue'), meta: { title: '数学学科管理' } },
       // 英语首页
       { path: 'english/home', component: () => import('@/views/teacher/english/EnglishHome.vue'), meta: { title: '英语学科中心' } },
       { path: 'english/word-progress', component: () => import('@/views/teacher/english/WordProgress.vue'), meta: { title: '单词学习进度' } },
@@ -54,21 +56,16 @@ const routes = [
       { path: '', redirect: '/student/dashboard' },
       { path: 'dashboard',      component: () => import('@/views/student/dashboard/DashboardView.vue'),      meta: { title: '学习中心' } },
       { path: 'schedule',       component: () => import('@/views/student/schedule/ScheduleView.vue'),        meta: { title: '课程表' } },
-      // 学科中心 — 动态路由
-      {
-        path: 'subject/:subject',
-        component: () => import('@/views/student/subject/SubjectHome.vue'),
-        children: [
-          { path: '', redirect: to => `/student/subject/${to.params.subject}/wrong-analysis` },
-          { path: 'wrong-analysis',    component: () => import('@/views/student/subject/WrongAnalysis.vue'),    meta: { title: 'AI错题分析' } },
-          { path: 'exam-analysis',     component: () => import('@/views/student/subject/ExamAnalysis.vue'),      meta: { title: 'AI试卷分析' } },
-          { path: 'question-bank',     component: () => import('@/views/student/subject/QuestionBank.vue'),      meta: { title: '题库' } },
-          { path: 'ai-animation',      component: () => import('@/views/student/subject/AIAnimation.vue'),       meta: { title: 'AI动图' } },
-          { path: 'ai-chat',           component: () => import('@/views/student/subject/AIChat.vue'),            meta: { title: 'AI聊天' } },
-          { path: 'knowledge-points',  component: () => import('@/views/student/subject/KnowledgePoints.vue'),   meta: { title: '知识点' } },
-          { path: 'homework',          component: () => import('@/views/student/subject/Homework.vue'),           meta: { title: '作业' } }
-        ]
-      },
+      // 学科中心
+      { path: 'subject/:subject', component: () => import('@/views/student/subject/SubjectHome.vue'), meta: { title: '学科中心' } },
+      { path: 'subject/:subject/wrong-analysis',   component: () => import('@/views/student/subject/WrongAnalysis.vue'),   meta: { title: 'AI错题分析' } },
+      { path: 'subject/:subject/exam-analysis',    component: () => import('@/views/student/subject/ExamAnalysis.vue'),    meta: { title: 'AI试卷分析' } },
+      { path: 'subject/:subject/question-bank',    component: () => import('@/views/student/subject/QuestionBank.vue'),    meta: { title: '题库' } },
+      { path: 'subject/:subject/ai-animation',     component: () => import('@/views/student/subject/AIAnimation.vue'),     meta: { title: 'AI动图' } },
+      { path: 'subject/:subject/ai-chat',          component: () => import('@/views/student/subject/AIChat.vue'),          meta: { title: 'AI聊天' } },
+      { path: 'subject/:subject/knowledge-points', component: () => import('@/views/student/subject/KnowledgePoints.vue'), meta: { title: '知识点' } },
+      { path: 'subject/:subject/homework',         component: () => import('@/views/student/subject/Homework.vue'),         meta: { title: '作业' } },
+      { path: 'subject/:subject/feedback',         component: () => import('@/views/student/subject/FeedbackView.vue'),     meta: { title: '近期反馈' } },
       { path: 'wrong-book',     component: () => import('@/views/student/wrongbook/WrongBook.vue'),          meta: { title: '我的错题本' } },
       { path: 'ai-analysis',    component: () => import('@/views/student/analysis/AIAnalysis.vue'),          meta: { title: 'AI学情分析' } },
       { path: 'scores',         component: () => import('@/views/student/scores/ScoreView.vue'),             meta: { title: '我的成绩' } },

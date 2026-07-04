@@ -19,6 +19,9 @@ export function getAdminSchedules(params)    { return http.get('/admin/schedules
 // === 概览统计 ===
 export function getAdminStats()              { return http.get('/admin/stats') }
 
+// === 老师学生 ===
+export function getTeacherMathStudents()     { return http.get('/teacher/math-students') }
+
 // === 系统设置 ===
 export function getAdminSettings()           { return http.get('/admin/settings') }
 export function updateAdminSettings(data)    { return http.put('/admin/settings', data) }
