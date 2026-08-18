@@ -64,7 +64,7 @@
         <el-table-column prop="contact" label="联系方式" width="125" />
         <el-table-column label="剩余课时" width="100" align="center">
           <template #default="{row}">
-            <span class="hours-val" :class="{zero:row.hoursLeft===0}">{{ row.hoursLeft }}</span>
+            <span class="hours-val" :class="{zero:calcHours(row)===0}">{{ calcHours(row) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="报名科目" min-width="180">
@@ -155,45 +155,52 @@
         </el-row>
         <el-form-item label="学校"><el-input :model-value="form.school" disabled /></el-form-item>
         <el-row :gutter="16">
-          <el-col :span="12"><el-form-item label="剩余课时"><el-input-number v-model="form.hoursLeft" :min="0" controls-position="right" style="width:100%" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="报名时间"><el-date-picker v-model="form.regDate" type="date" style="width:100%" value-format="YYYY-MM-DD" /></el-form-item></el-col>
         </el-row>
 
         <el-divider content-position="left">报名科目 & 排课</el-divider>
-        <div v-for="(enr, ei) in form.enrollments" :key="ei" class="enroll-block">
-          <div class="enroll-head">
-            <el-select v-model="enr.subject" placeholder="科目" style="width:110px"><el-option v-for="s in subjectList" :key="s" :label="s" :value="s" /></el-select>
-            <el-button size="small" type="danger" text @click="removeEnrollment(ei)" v-if="form.enrollments.length > 1">删除科目</el-button>
-          </div>
+        <el-form-item label="已有科目">
+          <el-tag v-for="(enr, ei) in form.enrollments" :key="ei" size="small" :type="subjectTags[enr.subject]"
+            :class="{active:activeEi===ei}" style="margin:2px;cursor:pointer" @click="activeEi=ei">
+            {{ enr.subject }} {{ (enr.batches||[]).reduce((s,b)=>s+b.dates.length,0) }}次
+            <span v-if="form.enrollments.length>1" @click.stop="removeEnrollment(ei)" style="margin-left:4px;color:#EF4444">×</span>
+          </el-tag>
+          <el-button size="small" text type="primary" @click="addEnrollment">+ 科目</el-button>
+        </el-form-item>
+        <template v-if="form.enrollments[activeEi]">
+          <el-form-item label="科目">
+            <el-select v-model="form.enrollments[activeEi].subject" style="width:120px">
+              <el-option v-for="s in subjectList" :key="s" :label="s" :value="s"/>
+            </el-select>
+          </el-form-item>
           <div class="mini-cal">
             <div class="cal-nav"><el-button size="small" text @click="fmPrev"><el-icon><ArrowLeft /></el-icon></el-button><span>{{ fmy }}年 {{ fmm+1 }}月</span><el-button size="small" text @click="fmNext"><el-icon><ArrowRight /></el-icon></el-button></div>
             <div class="cal-grid">
               <div class="ch" v-for="d in ['日','一','二','三','四','五','六']" :key="d">{{ d }}</div>
-              <div v-for="(c,ci) in enrollmentCalendar(ei)" :key="ci" class="cc" :class="c.cls" @click="c.cur && togglePendingDate(ei, c.date)">{{ c.day }}</div>
+              <div v-for="(c,ci) in enrollmentCalendar(activeEi)" :key="ci" class="cc" :class="c.cls" @click="c.cur && togglePendingDate(activeEi, c.date)">{{ c.day }}</div>
             </div>
           </div>
           <div class="pending-area">
             <div class="pending-dates">
-              <template v-if="enr._pending?.length">
-                <el-tag v-for="d in enr._pending" :key="d" size="small" effect="plain" closable @close="togglePendingDate(ei, d)" style="margin:2px">{{ d }}</el-tag>
+              <template v-if="form.enrollments[activeEi]?._pending?.length">
+                <el-tag v-for="d in form.enrollments[activeEi]._pending" :key="d" size="small" effect="plain" closable @close="togglePendingDate(activeEi, d)" style="margin:2px">{{ d }}</el-tag>
               </template>
               <span v-else class="hint">👆 点击日历日期选中</span>
             </div>
-            <div class="pending-action" v-if="enr._pending?.length">
-              <el-time-select v-model="enr._timeStart" start="08:00" step="00:15" end="21:00" placeholder="开始" style="width:100%" />
+            <div class="pending-action" v-if="form.enrollments[activeEi]?._pending?.length">
+              <el-time-select v-model="form.enrollments[activeEi]._timeStart" start="08:00" step="00:15" end="21:00" placeholder="开始" style="width:100%" />
               <span>—</span>
-              <el-time-select v-model="enr._timeEnd" start="08:00" step="00:15" end="21:00" placeholder="结束" style="width:100%" />
-              <el-button size="small" type="primary" @click="confirmPendingBatch(ei)">确认</el-button>
+              <el-time-select v-model="form.enrollments[activeEi]._timeEnd" start="08:00" step="00:15" end="21:00" placeholder="结束" style="width:100%" />
+              <el-button size="small" type="primary" @click="confirmPendingBatch(activeEi)">确认</el-button>
             </div>
           </div>
-          <div v-for="(batch, bi) in (enr.batches||[])" :key="bi" class="batch-row">
+          <div v-for="(batch, bi) in (form.enrollments[activeEi]?.batches||[])" :key="bi" class="batch-row">
             <span class="batch-dot" :style="{background:batchColors[bi%6]}"></span>
             <span class="batch-time">{{ batch.start }}-{{ batch.end }}</span>
-            <el-tag v-for="d in batch.dates" :key="d" size="small" :color="batchColorsLight[bi%6]" effect="plain" closable @close="removeBatchDate(ei,bi,d)" style="margin:1px;color:#333">{{ d }}</el-tag>
-            <el-button size="small" type="danger" text @click="removeBatch(ei,bi)">×</el-button>
+            <el-tag v-for="d in batch.dates" :key="d" size="small" :color="batchColorsLight[bi%6]" effect="plain" closable @close="removeBatchDate(activeEi,bi,d)" style="margin:1px;color:#333">{{ d }}</el-tag>
+            <el-button size="small" type="danger" text @click="removeBatch(activeEi,bi)">×</el-button>
           </div>
-        </div>
-        <el-button size="small" type="primary" dashed @click="addEnrollment" style="margin-top:6px"><el-icon><Plus /></el-icon>添加科目</el-button>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="showForm = false">取消</el-button>
@@ -271,12 +278,19 @@ const form = reactive({ name:'', gender:'男', contact:'', hoursLeft:20, grade:'
 
 // 学生选择器（从数据库调取所有学生）
 const selectedStudentId = ref(null)
+function calcHours(row) {
+  let total = 0
+  ;(row.enrollments||[]).forEach(e => { total += (e.sessions||[]).length })
+  return total
+}
+
 function onStudentSelect(id) {
+  activeEi.value = 0
   if (!id) return
   const s = students.value.find(x => x.id == id)
   if (!s) return
   form.name = s.name || ''; form.gender = s.gender || '男'; form.contact = s.contact || ''
-  form.hoursLeft = s.hoursLeft || 0; form.grade = s.grade || ''; form.school = s.school || ''; form.regDate = s.regDate || ''
+  form.grade = s.grade || ''; form.school = s.school || ''; form.regDate = s.regDate || ''
   editingId.value = s.id
   // 保留已有 enrollments，追加空行
   form.enrollments = [
@@ -284,8 +298,7 @@ function onStudentSelect(id) {
       subject: e.subject,
       batches: sessionsToBatches(e),
       _pending: [], _timeStart: '14', _timeEnd: '16'
-    })),
-    newEnrollment()
+    }))
   ]
 }
 
@@ -293,7 +306,7 @@ function onStudentSelect(id) {
 const students = ref([])
 const loading = ref(false); const saving = ref(false)
 const searchKeyword = ref(''); const filterSubject = ref(''); const filterGrade = ref('')
-const showForm = ref(false); const editingId = ref(null)
+const showForm = ref(false); const editingId = ref(null); const activeEi = ref(0)
 
 async function loadStudents() {
   loading.value = true
@@ -360,7 +373,7 @@ function editStudent(row) {
   if (!form.enrollments.length) form.enrollments = [newEnrollment()]
   showForm.value = true
 }
-function addEnrollment() { form.enrollments.push(newEnrollment()) }
+function addEnrollment() { form.enrollments.push(newEnrollment()); activeEi.value = form.enrollments.length - 1 }
 function removeEnrollment(idx) { form.enrollments.splice(idx, 1) }
 
 function enrollmentCalendar(ei) {
@@ -411,7 +424,8 @@ async function save() {
   saving.value = true
   const payload = {
     name: form.name, gender: form.gender, contact: form.contact,
-    hoursLeft: form.hoursLeft, grade: form.grade, school: form.school, regDate: form.regDate,
+    hoursLeft: form.enrollments.reduce((sum, e) => sum + (batchesToSessions(e).length), 0),
+    grade: form.grade, school: form.school, regDate: form.regDate,
     enrollments: form.enrollments.map(e => ({
       subject: e.subject,
       sessions: batchesToSessions(e).map(s => ({ classDate: s.date, startTime: s.start, endTime: s.end }))

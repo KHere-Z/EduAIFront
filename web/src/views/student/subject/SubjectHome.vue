@@ -29,12 +29,12 @@ const icon=computed(()=>icons[r.params.subject]||'📚')
 const label=computed(()=>labels[r.params.subject]||'学科')
 const g=(a,b)=>`linear-gradient(135deg,${a},${b})`
 const features=[
-  { title:'AI错题分析', emoji:'📸', desc:'拍照上传→AI解析', path:`/student/subject/${r.params.subject}/wrong-analysis`, bg:g('#FFE4E1','#FFCDD2') },
+  { title:'AI错题分析', emoji:'🔬', desc:'AI对话·拍照·文件上传', path:`/student/subject/${r.params.subject}/wrong-analysis`, bg:g('#FFE4E1','#FFCDD2') },
   { title:'AI试卷分析', emoji:'📄', desc:'上传试卷→扣分诊断', path:`/student/subject/${r.params.subject}/exam-analysis`, bg:g('#FFF0DB','#FFE0B2') },
   { title:'题库挑战',   emoji:'🎯', desc:'错题库·计时自习', path:`/student/subject/${r.params.subject}/question-bank`, bg:g('#E8F5E9','#C8E6C9') },
   { title:'AI动图',     emoji:'🎬', desc:'动点题→动态图', path:`/student/subject/${r.params.subject}/ai-animation`, bg:g('#E3F2FD','#BBDEFB') },
-  { title:'AI聊天',     emoji:'💬', desc:'智能问答辅导', path:`/student/subject/${r.params.subject}/ai-chat`, bg:g('#F3E5F5','#E1BEE7') },
   { title:'知识点',     emoji:'📖', desc:'本学期知识体系', path:`/student/subject/${r.params.subject}/knowledge-points`, bg:g('#FFF9C4','#FFF176') },
+  { title:'学习资源',   emoji:'📚', desc:'讲义·学案·习题·试卷', path:`/student/subject/${r.params.subject}/resources`, bg:g('#FCE4EC','#F8BBD0') },
   { title:'作业',       emoji:'✏️', desc:'完成打勾·老师看', path:`/student/subject/${r.params.subject}/homework`, bg:g('#F1F8E9','#DCEDC8') },
   { title:'近期反馈',   emoji:'📊', desc:'学习报告·老师评语', path:`/student/subject/${r.params.subject}/feedback`, bg:g('#EDE7F6','#D1C4E9') },
 ]

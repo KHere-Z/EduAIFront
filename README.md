@@ -40,13 +40,6 @@ npm install
 node index.js        # http://localhost:3000
 ```
 
-## 🔑 测试账号
-
-| 角色 | 用户名 | 密码 | 路由 |
-|------|--------|------|------|
-| 教练 | coach | coach123 | /coach/dashboard |
-| 机构 | agency | agency123 | /agency/dashboard |
-| 平台 | admin | admin123 | /platform/dashboard |
 
 ## 🛠️ 技术栈
 

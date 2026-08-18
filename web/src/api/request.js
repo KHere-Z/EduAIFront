@@ -5,11 +5,19 @@ import { useAuthStore } from '@/store/auth'
 
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE || '/api/v1',
-  timeout: 30000
+  timeout: 600000,  // 10分钟，匹配后端AI超时
+  transformRequest: [function(data, headers) {
+    if (data instanceof FormData) return data
+    // 强制 UTF-8 编码 Blob，避免 Windows 中文环境 GBK 问题
+    return new Blob([JSON.stringify(data)], {type: 'application/json;charset=UTF-8'})
+  }]
 })
 
 http.interceptors.request.use(config => {
-  config.headers['Content-Type'] = 'application/json;charset=UTF-8'
+  // 文件上传时不覆盖 Content-Type；Blob 自带 type，不用再设
+  if (!(config.data instanceof FormData) && !(config.data instanceof Blob)) {
+    config.headers['Content-Type'] = 'application/json;charset=UTF-8'
+  }
   // 从 Pinia 内存读取 token，避免多 tab 角色切换时 localStorage 覆盖
   const authStore = useAuthStore()
   if (authStore.token) {

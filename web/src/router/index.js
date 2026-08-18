@@ -2,9 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 
 const routes = [
-  { path: '/',        name: 'Home',     component: () => import('@/views/home/HomeView.vue'),      meta: { title: '安文AI教育' } },
+  { path: '/',        name: 'Home',     component: () => import('@/views/home/HomeView.vue'),      meta: { title: '智学AI教育' } },
   { path: '/login',   name: 'Login',    component: () => import('@/views/login/LoginView.vue'),     meta: { title: '登录' } },
-  { path: '/register',name: 'Register', component: () => import('@/views/register/RegisterView.vue'), meta: { title: '注册' } },
+  { path: '/register',name: 'Register', component: () => import('@/views/login/RegisterView.vue'), meta: { title: '注册' } },
 
   // ===== 老师端 =====
   {
@@ -16,6 +16,8 @@ const routes = [
       { path: 'students', name: 'TeacherStudents', component: () => import('@/views/teacher/students/StudentsView.vue'), meta: { title: '学生信息管理' } },
       // 老师端学科管理
       { path: 'subject/math/manage', component: () => import('@/views/teacher/subject/pages/MathManage.vue'), meta: { title: '数学学科管理' } },
+      { path: 'subject/math/kp-resources/:kpId', component: () => import('@/views/teacher/subject/pages/KpResourcesView.vue'), meta: { title: '资源管理' } },
+      { path: 'subject/math/exam-builder', component: () => import('@/views/teacher/subject/pages/MathExamBuilder.vue'), meta: { title: '出卷' } },
       // 英语首页
       { path: 'english/home', component: () => import('@/views/teacher/english/EnglishHome.vue'), meta: { title: '英语学科中心' } },
       { path: 'english/word-progress', component: () => import('@/views/teacher/english/WordProgress.vue'), meta: { title: '单词学习进度' } },
@@ -27,24 +29,21 @@ const routes = [
       { path: 'ai-dialogue', component: () => import('@/views/teacher/english/AIDialogueView.vue'),  meta: { title: 'AI情境口语' } },
       { path: 'grammar',     component: () => import('@/views/teacher/english/GrammarView.vue'),      meta: { title: '语法体系' } },
       { path: 'sentence-practice', component: () => import('@/views/teacher/english/SentencePractice.vue'), meta: { title: '造句练习' } },
+      { path: 'profile',     component: () => import('@/views/profile/ProfileView.vue'),               meta: { title: '个人中心' } },
+      { path: 'profile/:uid',component: () => import('@/views/profile/UserProfileView.vue'),          meta: { title: '用户主页' } },
+      { path: 'recharge',    component: () => import('@/views/recharge/RechargeView.vue'),            meta: { title: '智学点充值' } },
+      { path: 'revenue',     component: () => import('@/views/teacher/revenue/RevenueView.vue'),     meta: { title: '收益中心' } },
       { path: 'feedback',    component: () => import('@/views/teacher/english/FeedbackView.vue'),    meta: { title: '学习反馈' } },
-      // 学科中心 — 动态路由 9 学科复用
+      // 学科中心 — 动态路由 9 学科
       {
         path: 'subject/:subject',
-        component: () => import('@/views/teacher/subject/SubjectLayout.vue'),
-        children: [
-          { path: '', redirect: to => `/teacher/subject/${to.params.subject}/wrong-questions` },
-          { path: 'wrong-questions',  component: () => import('@/views/teacher/subject/WrongQuestions.vue'),  meta: { title: '错题整理' } },
-          { path: 'wrong-analysis',   component: () => import('@/views/teacher/subject/WrongAnalysis.vue'),   meta: { title: '错题分析' } },
-          { path: 'knowledge-points', component: () => import('@/views/teacher/subject/KnowledgePoints.vue'), meta: { title: '知识点' } },
-          { path: 'exam-points',      component: () => import('@/views/teacher/subject/ExamPoints.vue'),      meta: { title: '考点' } },
-          { path: 'solution-models',  component: () => import('@/views/teacher/subject/SolutionModels.vue'),  meta: { title: '解题模型' } },
-          { path: 'question-bank',    component: () => import('@/views/teacher/subject/QuestionBank.vue'),    meta: { title: '题库' } },
-          { path: 'ai-feedback',      component: () => import('@/views/teacher/subject/AIFeedback.vue'),      meta: { title: 'AI课堂反馈' } },
-          { path: 'ai-analysis',      component: () => import('@/views/teacher/subject/AIAnalysis.vue'),      meta: { title: 'AI综合分析' } },
-          { path: 'score-statistics', component: () => import('@/views/teacher/subject/ScoreStats.vue'),      meta: { title: '成绩统计' } }
-        ]
-      }
+        component: () => import('@/views/teacher/subject/SubjectCenter.vue'),
+      },
+      // 学科功能页（只保留数学4个核心功能）
+      { path: 'subject/math/wrong-analysis', component: () => import('@/views/student/subject/WrongAnalysis.vue'), meta: { title: 'AI错题分析' } },
+      { path: 'subject/math/exam-analysis',  component: () => import('@/views/student/subject/ExamAnalysis.vue'),  meta: { title: 'AI试卷分析' } },
+      { path: 'subject/math/ai-animation',   component: () => import('@/views/student/subject/AIAnimation.vue'),   meta: { title: 'AI动图' } },
+      { path: 'subject/math/resources',       component: () => import('@/views/student/subject/ResourcesView.vue'), meta: { title: '学习资源' } },
     ]
   },
 
@@ -53,7 +52,9 @@ const routes = [
     path: '/student', component: () => import('@/layouts/StudentLayout.vue'), meta: { role: 'student' },
     children: [
       { path: '', redirect: '/student/dashboard' },
-      { path: '', redirect: '/student/dashboard' },
+      { path: 'profile',         component: () => import('@/views/profile/ProfileView.vue'),               meta: { title: '个人中心' } },
+      { path: 'profile/:uid',    component: () => import('@/views/profile/UserProfileView.vue'),          meta: { title: '用户主页' } },
+      { path: 'recharge',       component: () => import('@/views/recharge/RechargeView.vue'),            meta: { title: '智学点充值' } },
       { path: 'dashboard',      component: () => import('@/views/student/dashboard/DashboardView.vue'),      meta: { title: '学习中心' } },
       { path: 'schedule',       component: () => import('@/views/student/schedule/ScheduleView.vue'),        meta: { title: '课程表' } },
       // 学科中心
@@ -62,16 +63,15 @@ const routes = [
       { path: 'subject/:subject/exam-analysis',    component: () => import('@/views/student/subject/ExamAnalysis.vue'),    meta: { title: 'AI试卷分析' } },
       { path: 'subject/:subject/question-bank',    component: () => import('@/views/student/subject/QuestionBank.vue'),    meta: { title: '题库' } },
       { path: 'subject/:subject/ai-animation',     component: () => import('@/views/student/subject/AIAnimation.vue'),     meta: { title: 'AI动图' } },
-      { path: 'subject/:subject/ai-chat',          component: () => import('@/views/student/subject/AIChat.vue'),          meta: { title: 'AI聊天' } },
       { path: 'subject/:subject/knowledge-points', component: () => import('@/views/student/subject/KnowledgePoints.vue'), meta: { title: '知识点' } },
+      { path: 'subject/:subject/knowledge-points/:kpId', component: () => import('@/views/student/subject/KpDetailView.vue'), meta: { title: '资源详情' } },
       { path: 'subject/:subject/homework',         component: () => import('@/views/student/subject/Homework.vue'),         meta: { title: '作业' } },
       { path: 'subject/:subject/feedback',         component: () => import('@/views/student/subject/FeedbackView.vue'),     meta: { title: '近期反馈' } },
+      { path: 'subject/:subject/resources',       component: () => import('@/views/student/subject/ResourcesView.vue'),    meta: { title: '学习资源' } },
       { path: 'wrong-book',     component: () => import('@/views/student/wrongbook/WrongBook.vue'),          meta: { title: '我的错题本' } },
       { path: 'ai-analysis',    component: () => import('@/views/student/analysis/AIAnalysis.vue'),          meta: { title: 'AI学情分析' } },
       { path: 'scores',         component: () => import('@/views/student/scores/ScoreView.vue'),             meta: { title: '我的成绩' } },
       { path: 'practice',       component: () => import('@/views/student/practice/PracticeView.vue'),        meta: { title: '智能练习' } },
-      // 学生学科入口（只读）
-      { path: 'subject/:subject',  component: () => import('@/views/student/subject/SubjectView.vue'),       meta: { title: '学科学习' } }
     ]
   },
 
@@ -84,7 +84,9 @@ const routes = [
       { path: 'students',  component: () => import('@/views/admin/students/StudentsView.vue'),    meta: { title: '学生管理' } },
       { path: 'teachers',  component: () => import('@/views/admin/teachers/TeachersView.vue'),    meta: { title: '老师管理' } },
       { path: 'schedules', component: () => import('@/views/admin/teachers/ScheduleView.vue'),    meta: { title: '排课查看' } },
-      { path: 'settings',  component: () => import('@/views/admin/settings/SettingsView.vue'),    meta: { title: '系统设置' } }
+      { path: 'settings',  component: () => import('@/views/admin/settings/SettingsView.vue'),    meta: { title: '系统设置' } },
+      { path: 'resources', component: () => import('@/views/admin/resources/ResourcesUploadView.vue'), meta: { title: '学习资源上传' } },
+      { path: 'withdraws', component: () => import('@/views/admin/withdraws/WithdrawReviewView.vue'), meta: { title: '提现审核' } }
     ]
   },
 
@@ -94,7 +96,7 @@ const routes = [
 const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach((to, from, next) => {
-  document.title = to.meta.title ? `${to.meta.title} · 安文AI教育` : '安文AI教育'
+  document.title = to.meta.title ? `${to.meta.title} · 智学AI教育` : '智学AI教育'
   const authStore = useAuthStore()
   const publicPaths = ['/', '/login', '/register']
   if (!publicPaths.includes(to.path) && !authStore.token) {
