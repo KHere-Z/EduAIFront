@@ -7,7 +7,7 @@
       </div>
     </div>
     <el-row :gutter="20" class="mb-lg">
-      <el-col :span="6" v-for="s in summary" :key="s.label"><el-card shadow="hover" class="stat-card"><div class="stat-num" :style="{color:s.color}">{{ s.value }}</div><div class="stat-label">{{ s.label }}</div></el-card></el-col>
+      <el-col :span="8" v-for="s in summary" :key="s.label"><el-card shadow="hover" class="stat-card"><div class="stat-num" :style="{color:s.color}">{{ s.value }}</div><div class="stat-label">{{ s.label }}</div></el-card></el-col>
     </el-row>
     <el-card>
       <el-table :data="schedules" stripe size="small" v-loading="loading">
@@ -25,12 +25,13 @@ import { ref, reactive, onMounted } from 'vue'
 import { getAdminTeachers, getAdminSchedules } from '@/api/common/admin'
 const loading = ref(false); const teacherOptions = ref([])
 const filters = reactive({ teacherId: null, month: new Date().getMonth()+1, year: 2026 })
-const schedules = ref([]); const summary = ref([{label:'本月排课',value:0,color:'#6366F1'},{label:'老师数',value:0,color:'#67C23A'},{label:'学生数',value:0,color:'#E6A23C'},{label:'今日',value:0,color:'#F56C6C'}])
-onMounted(async () => { try { const r = await getAdminTeachers({ pageSize:100 }); teacherOptions.value = r.list||[] } catch {}; await load() })
+const schedules = ref([]); const summary = ref([{label:'本月排课',value:0,color:'#6366F1'},{label:'今日',value:0,color:'#F56C6C'}])
+onMounted(async () => { try { const r = await getAdminTeachers({ pageSize:100 }); teacherOptions.value = r.list||[]; if (teacherOptions.value.length && !filters.teacherId) filters.teacherId = teacherOptions.value[0].userId } catch {}; await load() })
 async function load() {
   loading.value = true
   try {
-    const r = await getAdminSchedules({ teacherId: filters.teacherId, year: filters.year, month: filters.month, pageSize: 200 })
+    const params = { teacherId: filters.teacherId||undefined, year: filters.year, month: filters.month, pageSize: 200 }
+    const r = await getAdminSchedules(params)
     schedules.value = r.list||[]; summary.value[0].value = r.total||0
   } catch {}
   loading.value = false

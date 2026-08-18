@@ -25,3 +25,16 @@ export function getTeacherMathStudents()     { return http.get('/teacher/math-st
 // === 系统设置 ===
 export function getAdminSettings()           { return http.get('/admin/settings') }
 export function updateAdminSettings(data)    { return http.put('/admin/settings', data) }
+export function getAdminModels()             { return http.get('/admin/settings/models') }
+
+// === 模型管理 ===
+export function getModels()                  { return http.get('/admin/models') }
+export function createModel(data)            { return http.post('/admin/models', data) }
+export function updateModel(id, data)        { return http.put(`/admin/models/${id}`, data) }
+export function deleteModel(id)              { return http.delete(`/admin/models/${id}`) }
+
+// === 反馈系统 ===
+export function getTeacherFeedbacks(params)  { return http.get('/teacher/feedbacks', { params }) }
+export function createTeacherFeedback(data)  { return http.post('/teacher/feedbacks', data) }
+export function deleteTeacherFeedback(id)    { return http.delete(`/teacher/feedbacks/${id}`) }
+export function getStudentFeedbacks(params)  { return http.get('/student/feedbacks', { params }) }

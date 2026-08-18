@@ -10,14 +10,14 @@ export const useAuthStore = defineStore('auth', () => {
     if (p.startsWith('/teacher')) return 3
     if (p.startsWith('/admin')) return 1
     // 登录页：尝试读取所有角色 key，取有数据的
-    for (const r of [4,3,1]) { if (localStorage.getItem(`eduai_token_${r}`)) return r }
+    for (const r of [4,3,1]) { if (sessionStorage.getItem(`eduai_token_${r}`)) return r }
     return null
   }
   const pathRole = detectRole()
   const tokenKey = pathRole ? `eduai_token_${pathRole}` : 'eduai_token'
   const userKey = pathRole ? `eduai_user_${pathRole}` : 'eduai_user'
-  const token = ref(localStorage.getItem(tokenKey) || '')
-  const user = ref(JSON.parse(localStorage.getItem(userKey) || 'null'))
+  const token = ref(sessionStorage.getItem(tokenKey) || '')
+  const user = ref(JSON.parse(sessionStorage.getItem(userKey) || 'null'))
   const permissions = ref([])
 
   const isLoggedIn = computed(() => !!token.value)
@@ -32,15 +32,15 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = res.user
     const rt = res.user.roleType
     // 按角色隔离存储 — 不同角色不会互相覆盖
-    localStorage.setItem(`eduai_token_${rt}`, res.token)
-    localStorage.setItem(`eduai_user_${rt}`, JSON.stringify(res.user))
+    sessionStorage.setItem(`eduai_token_${rt}`, res.token)
+    sessionStorage.setItem(`eduai_user_${rt}`, JSON.stringify(res.user))
     return res
   }
 
   async function fetchUserInfo() {
     const res = await getUserInfo()
     user.value = res
-    localStorage.setItem(userKey, JSON.stringify(res))
+    sessionStorage.setItem(userKey, JSON.stringify(res))
   }
 
   function demoLogin(username, roleType, roleName) {
@@ -56,8 +56,8 @@ export const useAuthStore = defineStore('auth', () => {
     const fakeUser = { id: roleType * 100, username, realName: info.name, roleType, subjects }
     token.value = fakeToken; user.value = fakeUser
     
-    localStorage.setItem(`eduai_token_${roleType}`, fakeToken)
-    localStorage.setItem(`eduai_user_${roleType}`, JSON.stringify(fakeUser))
+    sessionStorage.setItem(`eduai_token_${roleType}`, fakeToken)
+    sessionStorage.setItem(`eduai_user_${roleType}`, JSON.stringify(fakeUser))
   }
 
   async function enrichStudentSubjects() {
@@ -69,16 +69,19 @@ export const useAuthStore = defineStore('auth', () => {
       const allSubjects = [...new Set(courses.map(c => c.subject))]
       const grade = courses[0]?.grade || ''
       user.value = { ...user.value, enrolledSubjects: allSubjects, grade }
-      localStorage.setItem(`eduai_user_${user.value.roleType}`, JSON.stringify(user.value))
+      sessionStorage.setItem(`eduai_user_${user.value.roleType}`, JSON.stringify(user.value))
     } catch {}
   }
+
+  function setToken(t) { token.value = t; if (t && user.value) { const rt = user.value.roleType; sessionStorage.setItem(`eduai_token_${rt}`, t) } }
+  function setUser(u) { user.value = u; if (u && token.value) { const rt = u.roleType; sessionStorage.setItem(`eduai_token_${rt}`, token.value); sessionStorage.setItem(`eduai_user_${rt}`, JSON.stringify(u)) } }
 
   function logout() {
     const rt = user.value?.roleType
     token.value = ''; user.value = null
     
-    if (rt) { localStorage.removeItem(`eduai_token_${rt}`); localStorage.removeItem(`eduai_user_${rt}`) }
+    if (rt) { sessionStorage.removeItem(`eduai_token_${rt}`); sessionStorage.removeItem(`eduai_user_${rt}`) }
   }
 
-  return { token, user, permissions, isLoggedIn, role, isTeacher, isStudent, isAdmin, login, demoLogin, logout, fetchUserInfo, enrichStudentSubjects }
+  return { token, user, permissions, isLoggedIn, role, isTeacher, isStudent, isAdmin, login, demoLogin, logout, fetchUserInfo, enrichStudentSubjects, setToken, setUser }
 })

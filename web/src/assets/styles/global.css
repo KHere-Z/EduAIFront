@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   安文AI教育 · 设计系统
+   智学AI教育 · 设计系统
    简洁大气 · 富有高级感
    ═══════════════════════════════════════════ */
 
@@ -141,6 +141,15 @@ a:hover { color: var(--color-primary-dark); }
 
 /* 分页 */
 .el-pagination .el-pager li.is-active { background: var(--color-primary); border-radius: var(--radius-sm); }
+
+/* ===== 返回链接 ===== */
+.back-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 13px; color: var(--color-primary); text-decoration: none;
+  padding: 6px 0; margin-bottom: 4px; transition: all var(--transition);
+  font-weight: 500;
+}
+.back-link:hover { color: var(--color-primary-dark); gap: 6px; }
 
 /* ===== 通用布局类 ===== */
 .page-container {

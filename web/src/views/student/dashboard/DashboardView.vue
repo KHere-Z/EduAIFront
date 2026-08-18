@@ -16,7 +16,7 @@
     <el-dialog v-model="showCheckin" title="🔥 学习打卡" width="380px">
       <div class="cal-top"><el-button size="small" text @click="calMonth--;calMonth<0&&(calYear--,calMonth=11)"><el-icon><ArrowLeft/></el-icon></el-button><strong>{{ calYear }}年{{ calMonth+1 }}月</strong><el-button size="small" text @click="calMonth++;calMonth>11&&(calYear++,calMonth=0)"><el-icon><ArrowRight/></el-icon></el-button></div>
       <div class="mini-cal"><div class="mch" v-for="d in ['日','一','二','三','四','五','六']" :key="d">{{ d }}</div><div v-for="(c,i) in calCells" :key="i" class="mcc" :class="{mct:c.isToday,mok:c.checked,mot:c.isToday&&!c.checked}">{{ c.day }}<span v-if="c.checked" class="mdot">✓</span></div></div>
-      <div class="checkin-info"><p>本月打卡 <strong>{{ monthChecked }}</strong> 天 · 累计 <strong>{{ streak }}</strong> 天</p><p class="milestone" v-if="streak%7===0&&streak>0">🎆 连续{{ streak }}天里程碑！</p></div>
+      <div class="checkin-info"><p>本月打卡 <strong>{{ monthChecked }}</strong> 天 · 累计 <strong>{{ totalDays }}</strong> 天</p><p class="milestone" v-if="streak%7===0&&streak>0">🎆 连续{{ streak }}天里程碑！</p></div>
       <template #footer><el-button v-if="!checkedToday" type="primary" size="large" class="checkin-btn" @click="doCheckinHandler">📝 今日打卡</el-button><el-tag v-else type="success" size="large">✅ 今日已打卡</el-tag></template>
     </el-dialog>
 
@@ -27,7 +27,6 @@
       <div class="s-card" v-for="s in subjects" :key="s.value" @click="$router.push('/student/subject/'+s.value)" :style="{background:s.bg}">
         <span class="sc-emoji">{{ s.icon }}</span>
         <span class="sc-label">{{ s.label }}</span>
-        <span class="sc-progress" v-if="s.progress>0">{{ s.progress }}%</span>
       </div>
     </div>
     <el-empty v-else description="还没有报名科目哦～" :image-size="80" style="margin:20px 0" />
@@ -35,8 +34,8 @@
     <h3 class="sec-title">📅 今日课程</h3>
     <div v-if="todayClasses.length" class="class-list">
       <div class="class-item" v-for="c in todayClasses" :key="c.id">
-        <div class="ci-left"><span class="ci-time">{{ c.start }}:00-{{ c.end }}:00</span><el-tag size="small">{{ c.subject }}</el-tag></div>
-        <span class="ci-teacher">{{ c.teacher }}</span>
+        <div class="ci-left"><span class="ci-time">{{ c.startTime||c.start }}:00-{{ c.endTime||c.end }}:00</span><el-tag size="small">{{ c.subject }}</el-tag></div>
+        <span class="ci-teacher">{{ c.teacherName||c.teacher }}</span>
       </div>
     </div>
     <div v-else class="empty-class">🎉 今天没有课，自由安排时间吧～</div>
@@ -48,15 +47,16 @@ import { ref, computed, onMounted } from 'vue'; import { useAuthStore } from '@/
 import { ElMessage } from 'element-plus'
 import { getStreak, doCheckin as apiCheckin, getSchedule } from '@/api/common/student'
 const auth = useAuthStore()
-const streak = ref(0); const checkedToday = ref(false); const justChecked = ref(false)
+const streak = ref(0); const totalDays = ref(0); const checkedToday = ref(false); const justChecked = ref(false)
 const showCheckin = ref(false); const showFireworks = ref(false)
-const calYear = ref(2026); const calMonth = ref(6)
+const calYear = ref(new Date().getFullYear()); const calMonth = ref(new Date().getMonth())
 const checkinDates = ref([])
 const todayClasses = ref([])
 
 onMounted(async () => {
-  try { const r = await getStreak(); streak.value = r.streak||0; checkedToday.value = r.checkedInToday||false; checkinDates.value = r.checkinDates||[] } catch {}
-  try { const s = await getSchedule({year:2026,month:7}); todayClasses.value = (s.schedules||[]).filter(x=>x.classDate===today) } catch {}
+  try { const r = await getStreak(); streak.value = r.streak||0; totalDays.value = r.totalDays||0; checkedToday.value = r.checkedInToday||false; checkinDates.value = r.checkinDates||[] } catch {}
+  const now = new Date()
+  try { const s = await getSchedule({year:now.getFullYear(),month:now.getMonth()+1}); todayClasses.value = (s.schedules||[]).filter(x=>x.classDate===today) } catch {}
 })
 const today = new Date().toISOString().slice(0,10)
 const fwColors = ['#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#FF8E53']
@@ -73,7 +73,7 @@ async function doCheckinHandler(){if(checkedToday.value)return;try{await apiChec
 const zh2en = { '语文':'chinese','数学':'math','英语':'english','物理':'physics','化学':'chemistry','生物':'biology','历史':'history','政治':'politics','地理':'geography' }
 const icons = { '语文':'📝','数学':'📐','英语':'📖','物理':'⚛️','化学':'🧪','生物':'🧬','历史':'📜','政治':'⚖️','地理':'🌍' }
 const colors = ['linear-gradient(135deg,#FFE4E1,#FFCDD2)','linear-gradient(135deg,#FFF0DB,#FFE0B2)','linear-gradient(135deg,#E8F5E9,#C8E6C9)','linear-gradient(135deg,#E3F2FD,#BBDEFB)','linear-gradient(135deg,#F3E5F5,#E1BEE7)','linear-gradient(135deg,#FFF9C4,#FFF176)','linear-gradient(135deg,#F1F8E9,#DCEDC8)','linear-gradient(135deg,#EDE7F6,#D1C4E9)','linear-gradient(135deg,#FFF3E0,#FFCCBC)']
-const enrolled = computed(() => auth.user?.enrolledSubjects || auth.user?.subjects || [])
+const enrolled = computed(() => auth.user?.subjects || auth.user?.enrolledSubjects || [])
 const subjects = computed(() => enrolled.value.filter(s => zh2en[s]).map((s,i) => ({ value:zh2en[s], label:s, icon:icons[s]||'📚', bg:colors[i%9], progress: Math.floor(Math.random()*40+30) })))
 </script>
 <style scoped>
@@ -90,7 +90,6 @@ const subjects = computed(() => enrolled.value.filter(s => zh2en[s]).map((s,i) =
 .s-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.08); }
 .sc-emoji { font-size: 32px; }
 .sc-label { font-size: 14px; font-weight: 700; color: #333; }
-.sc-progress { position: absolute; top: 10px; right: 12px; font-size: 11px; color: #4CAF50; font-weight: 600; }
 .class-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,.7); backdrop-filter: blur(8px); border: 1px solid rgba(0,0,0,.04); margin-bottom: 8px; }
 .ci-left { display: flex; align-items: center; gap: 10px; }
 .ci-time { font-size: 14px; font-weight: 600; color: var(--color-primary); }

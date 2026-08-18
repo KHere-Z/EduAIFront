@@ -5,6 +5,8 @@ node_modules/
 *.log
 .env.local
 .env
+.mcp.json
+body.json
 
 # Maven / IDE
 server/target/
