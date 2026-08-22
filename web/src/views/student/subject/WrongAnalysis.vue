@@ -93,7 +93,7 @@
           </div>
           <div v-if="panelStage==='ocr'" class="ps-actions">
             <el-button @click="closePanel" size="small">清空</el-button>
-            <el-button type="primary" @click="startAnalysis" size="small" :loading="panelStage==='analyzing'">✅ 开始分析 · 消耗5点</el-button>
+            <el-button type="primary" @click="startAnalysis" size="small" :loading="panelStage==='analyzing'">✅ 开始分析</el-button>
           </div>
           <div v-if="panelStage==='analyzing' && myTask" class="wa-progress">
             <div class="wp-bar"><div class="wp-fill" :style="{ width: myTask.progress + '%' }"></div></div>
@@ -107,7 +107,7 @@
             <span class="psh-icon">🖼️</span> 题目配图
             <div style="margin-left:auto;display:flex;gap:4px" v-if="panelOriginal">
               <el-upload v-if="panelDiagram" action="#" :auto-upload="false" :show-file-list="false" accept="image/*" @change="onReplaceDiagram"><el-button size="small" text type="primary">📁 重新配图</el-button></el-upload>
-              <el-button size="small" text type="primary" @click="showCrop=true">✂️ 裁剪配图</el-button>
+              <el-button size="small" text type="primary" @click="openCropDiagram">✂️ 裁剪配图</el-button>
             </div>
           </div>
           <div v-if="!panelDiagram" class="pd-hint">💡 题目含几何图？点「✂️ 裁剪配图」从原图框选，帮助豆包更准识别</div>
@@ -147,20 +147,23 @@
     </div>
 
     <!-- 配图裁剪弹窗 -->
-    <el-dialog v-model="showCrop" title="✂️ 裁剪配图 — 点击两点选择区域" width="90%" :append-to-body="true" destroy-on-close @opened="initCrop">
-      <div class="crop-wrap" ref="cropWrap">
-        <img ref="cropImg" :src="panelOriginal" class="crop-img" @click="onCropClick" />
-        <div v-if="cropP1" class="crop-point" :style="{left:cropP1.x+'%',top:cropP1.y+'%'}"></div>
-        <div v-if="cropP2" class="crop-point" :style="{left:cropP2.x+'%',top:cropP2.y+'%'}"></div>
-        <div v-if="cropRect.w" class="crop-rect" :style="cropRectStyle"></div>
+    <el-dialog v-model="showCrop" title="✂️ 裁剪配图" width="820px" :close-on-click-modal="false" destroy-on-close>
+      <div style="text-align:center;overflow:auto">
+        <div class="crop-wrap" ref="cropWrap">
+          <img :src="cropSrc" ref="cropImgEl" class="crop-src-img" @load="initCrop" draggable="false"/>
+          <div v-if="cropReady" class="crop-box" :style="cropBoxStyle" @pointerdown="startCropDrag('move', $event)">
+            <span class="crop-handle ch-nw" @pointerdown.stop="startCropDrag('nw',$event)"></span>
+            <span class="crop-handle ch-n" @pointerdown.stop="startCropDrag('n',$event)"></span>
+            <span class="crop-handle ch-ne" @pointerdown.stop="startCropDrag('ne',$event)"></span>
+            <span class="crop-handle ch-e" @pointerdown.stop="startCropDrag('e',$event)"></span>
+            <span class="crop-handle ch-se" @pointerdown.stop="startCropDrag('se',$event)"></span>
+            <span class="crop-handle ch-s" @pointerdown.stop="startCropDrag('s',$event)"></span>
+            <span class="crop-handle ch-sw" @pointerdown.stop="startCropDrag('sw',$event)"></span>
+            <span class="crop-handle ch-w" @pointerdown.stop="startCropDrag('w',$event)"></span>
+          </div>
+        </div>
       </div>
-      <div class="crop-info" v-if="cropP1&&!cropP2">请点击第二个角确定区域</div>
-      <div class="crop-info" v-else-if="cropRect.w">区域已选</div>
-      <div class="crop-info" v-else>点击图片上第一个角开始选择</div>
-      <template #footer>
-        <el-button @click="showCrop=false">取消</el-button>
-        <el-button type="primary" @click="doCrop" :disabled="!cropRect.w">确认裁剪</el-button>
-      </template>
+      <template #footer><el-button @click="showCrop=false">取消</el-button><el-button type="primary" @click="confirmCrop">✅ 提交</el-button></template>
     </el-dialog>
 
     <el-dialog v-model="showPreview" title="图片预览" width="90%" :append-to-body="true" destroy-on-close>
@@ -270,32 +273,56 @@ onMounted(() => {
 })
 watch(() => myTask.value?.status, (s) => { if (s === 'done') { restoreFromTask(myTask.value); restoreSaved() } })
 
-// 裁剪相关（拖拽模式）
+// 裁剪相关（拖拽框选模式）
 const showCrop = ref(false)
-const cropImg = ref(null)
+const cropSrc = ref('')
+const cropImgEl = ref(null)
+const cropWrap = ref(null)
+const cropReady = ref(false)
 const cropRect = reactive({ x: 0, y: 0, w: 0, h: 0 })
-const cropP1 = ref(null)
-const cropP2 = ref(null)
-const cropRectStyle = computed(() => {
-  if (!cropRect.w) return {}
-  return { left: cropRect.x + '%', top: cropRect.y + '%', width: cropRect.w + '%', height: cropRect.h + '%' }
-})
+let cropDragHandle = ''
+let cropDragStart = null
+const cropBoxStyle = computed(() => ({ left: cropRect.x + 'px', top: cropRect.y + 'px', width: cropRect.w + 'px', height: cropRect.h + 'px' }))
 
-function initCrop() { cropP1.value = null; cropP2.value = null; cropRect.x = 0; cropRect.y = 0; cropRect.w = 0; cropRect.h = 0 }
-
-function onCropClick(e) {
-  const img = cropImg.value; if (!img) return
-  const r = img.getBoundingClientRect()
-  const x = +((e.clientX - r.left) / r.width * 100).toFixed(1)
-  const y = +((e.clientY - r.top) / r.height * 100).toFixed(1)
-  if (!cropP1.value || cropP2.value) { cropP1.value = { x, y }; cropP2.value = null; cropRect.w = 0 }
-  else {
-    cropP2.value = { x, y }
-    cropRect.x = Math.min(cropP1.value.x, cropP2.value.x)
-    cropRect.y = Math.min(cropP1.value.y, cropP2.value.y)
-    cropRect.w = Math.abs(cropP2.value.x - cropP1.value.x)
-    cropRect.h = Math.abs(cropP2.value.y - cropP1.value.y)
+function openCropDiagram() {
+  if (!panelOriginal.value) { ElMessage.warning('请先上传题目原图'); return }
+  cropSrc.value = panelOriginal.value; cropReady.value = false; showCrop.value = true
+}
+function initCrop() {
+  const img = cropImgEl.value; if (!img) return
+  const w = img.clientWidth || img.naturalWidth; const h = img.clientHeight || img.naturalHeight
+  const cw = w * 0.8, ch = h * 0.8
+  cropRect.x = (w - cw) / 2; cropRect.y = (h - ch) / 2; cropRect.w = cw; cropRect.h = ch
+  cropReady.value = true
+}
+function startCropDrag(handle, e) {
+  const img = cropImgEl.value; if (!img) return
+  cropDragHandle = handle
+  cropDragStart = { x: e.clientX, y: e.clientY, left: cropRect.x, top: cropRect.y, right: cropRect.x + cropRect.w, bottom: cropRect.y + cropRect.h, imgW: img.clientWidth || img.naturalWidth, imgH: img.clientHeight || img.naturalHeight }
+  window.addEventListener('pointermove', onCropMove); window.addEventListener('pointerup', onCropUp)
+  e.preventDefault()
+}
+function onCropMove(e) {
+  if (!cropDragStart) return
+  const dx = e.clientX - cropDragStart.x, dy = e.clientY - cropDragStart.y, MIN = 20
+  let { left, top, right, bottom, imgW, imgH } = cropDragStart
+  if (cropDragHandle === 'move') {
+    const w = right - left, h = bottom - top
+    left = Math.max(0, Math.min(cropDragStart.left + dx, imgW - w)); top = Math.max(0, Math.min(cropDragStart.top + dy, imgH - h))
+    right = left + w; bottom = top + h
+  } else {
+    if (cropDragHandle.includes('w')) left = cropDragStart.left + dx
+    if (cropDragHandle.includes('e')) right = cropDragStart.right + dx
+    if (cropDragHandle.includes('n')) top = cropDragStart.top + dy
+    if (cropDragHandle.includes('s')) bottom = cropDragStart.bottom + dy
+    left = Math.max(0, Math.min(left, right - MIN)); right = Math.min(imgW, Math.max(right, left + MIN))
+    top = Math.max(0, Math.min(top, bottom - MIN)); bottom = Math.min(imgH, Math.max(bottom, top + MIN))
   }
+  cropRect.x = left; cropRect.y = top; cropRect.w = right - left; cropRect.h = bottom - top
+}
+function onCropUp() {
+  cropDragHandle = ''; cropDragStart = null
+  window.removeEventListener('pointermove', onCropMove); window.removeEventListener('pointerup', onCropUp)
 }
 
 function onReplaceDiagram(file) { if (file?.raw) { const r = new FileReader(); r.onload = () => { panelDiagram.value = r.result }; r.readAsDataURL(file.raw) } }
@@ -304,16 +331,12 @@ function onDiagramPaste(e) {
     if (item.type.startsWith('image/')) { e.preventDefault(); const b=item.getAsFile(); const r=new FileReader(); r.onload=()=>{panelDiagram.value=r.result}; r.readAsDataURL(b); return }
   }
 }
-function doCrop() {
-  if (!cropRect.w) return
-  const img = cropImg.value
-  const w = img.naturalWidth, h = img.naturalHeight
-  const x1 = cropRect.x / 100 * w, y1 = cropRect.y / 100 * h
-  const cw = cropRect.w / 100 * w, ch = cropRect.h / 100 * h
-  const canvas = document.createElement('canvas'); canvas.width = cw; canvas.height = ch
-  canvas.getContext('2d').drawImage(img, x1, y1, cw, ch, 0, 0, cw, ch)
-  panelDiagram.value = canvas.toDataURL('image/png')
-  showCrop.value = false
+function confirmCrop() {
+  const img = cropImgEl.value; if (!img) return
+  const sx = img.naturalWidth / (img.clientWidth || img.naturalWidth); const sy = img.naturalHeight / (img.clientHeight || img.naturalHeight)
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(cropRect.w * sx)); c.height = Math.max(1, Math.round(cropRect.h * sy))
+  c.getContext('2d').drawImage(img, cropRect.x * sx, cropRect.y * sy, cropRect.w * sx, cropRect.h * sy, 0, 0, c.width, c.height)
+  panelDiagram.value = c.toDataURL('image/png'); showCrop.value = false; ElMessage.success('配图已截取')
 }
 
 // 豆包识图：先提取图片中的题目原文，作为题库标题和后续分析依据
@@ -478,6 +501,19 @@ async function send() {
   if (!canSend.value || typing.value) return
   const text = inputText.value.trim()
   const files = [...pendingFiles.value]
+
+  // 智学点消耗检查：点击发送即开始扣除
+  try {
+    const pts = await http.get('/user/points')
+    const balance = pts?.points ?? pts?.data?.points ?? 0
+    if (balance < 5) {
+      ElMessageBox.confirm(`智学点不足！当前余额 ${balance} 点，本次分析需消耗 5 点。是否前往充值？`, '智学点不足', { confirmButtonText:'去充值', cancelButtonText:'取消', type:'warning' })
+        .then(() => router.push('/' + (route.path.startsWith('/teacher') ? 'teacher' : 'student') + '/recharge'))
+      return
+    }
+    await ElMessageBox.confirm(`本次 AI 错题分析将消耗 5 智学点（当前余额 ${balance} 点），是否继续？`, '确认消耗', { confirmButtonText:'确认分析', cancelButtonText:'取消', type:'info' })
+  } catch (e) { if (e !== 'confirm') return }
+
   inputText.value = ''; pendingFiles.value = []
 
   const now = new Date()
@@ -529,17 +565,6 @@ let elapsedTimer = null
 
 async function startAnalysis() {
   if (!panelOriginal.value && !panelQuestionText.value.trim()) { ElMessage.warning('请上传题目图片或输入文字'); return }
-  // 智学点消耗检查
-  try {
-    const pts = await http.get('/user/points')
-    const balance = pts?.points ?? pts?.data?.points ?? 0
-    if (balance < 5) {
-      ElMessageBox.confirm(`智学点不足！当前余额 ${balance} 点，本次分析需消耗 5 点。是否前往充值？`, '智学点不足', { confirmButtonText:'去充值', cancelButtonText:'取消', type:'warning' })
-        .then(() => router.push('/' + (route.path.startsWith('/teacher') ? 'teacher' : 'student') + '/recharge'))
-      return
-    }
-    await ElMessageBox.confirm(`本次 AI 错题分析将消耗 5 智学点（当前余额 ${balance} 点），是否继续？`, '确认消耗', { confirmButtonText:'确认分析', cancelButtonText:'取消', type:'info' })
-  } catch (e) { if (e !== 'confirm') return }
   panelStage.value = 'analyzing'
   const taskId = aiTask.start({ title: 'AI 错题分析', type: 'wrong', route: route.fullPath })
   myTaskId.value = taskId
@@ -789,11 +814,13 @@ onBeforeUnmount(() => { showCrop.value = false; showPreview.value = false })
 .pq-toolbar { display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; }
 .pd-diagram { max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid var(--color-border); cursor: pointer; }
 .pd-hint { font-size: 12px; color: #F59E0B; background: #FFFBEB; padding: 8px 12px; border-radius: 6px; text-align: center; }
-.crop-wrap { position: relative; display: inline-block; max-width: 100%; }
-.crop-img { max-width: 100%; max-height: 65vh; cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='%23E53935' stroke-width='3'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23E53935'/%3E%3C/svg%3E") 12 12, crosshair; display: block; }
-.crop-point { position: absolute; width: 12px; height: 12px; background: #E53935; border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); z-index: 2; pointer-events: none; box-shadow: 0 0 4px rgba(0,0,0,.3); }
-.crop-rect { position: absolute; border: 2px solid #E53935; background: rgba(229,57,53,.15); z-index: 1; pointer-events: none; }
-.crop-info { text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 8px; }
+.crop-wrap { position: relative; display: inline-block; }
+.crop-src-img { display: block; max-width: 760px; max-height: 60vh; }
+.crop-box { position: absolute; border: 2px solid #3B82F6; box-sizing: border-box; cursor: move; touch-action: none; }
+.crop-handle { position: absolute; width: 10px; height: 10px; background: #fff; border: 1px solid #3B82F6; border-radius: 2px; touch-action: none; }
+.ch-nw { left: -6px; top: -6px; cursor: nwse-resize; } .ch-n { left: 50%; top: -6px; margin-left: -5px; cursor: ns-resize; } .ch-ne { right: -6px; top: -6px; cursor: nesw-resize; }
+.ch-e { right: -6px; top: 50%; margin-top: -5px; cursor: ew-resize; } .ch-se { right: -6px; bottom: -6px; cursor: nwse-resize; } .ch-s { left: 50%; bottom: -6px; margin-left: -5px; cursor: ns-resize; }
+.ch-sw { left: -6px; bottom: -6px; cursor: nesw-resize; } .ch-w { left: -6px; top: 50%; margin-top: -5px; cursor: ew-resize; }
 .pq-input :deep(.el-textarea__inner) { font-size: 14px; line-height: 1.8; }
 .ps-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
 .ps-body { font-size: 14px; line-height: 1.8; color: #444; }

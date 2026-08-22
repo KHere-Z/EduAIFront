@@ -38,6 +38,11 @@ export default defineConfig({
       '/ocr': {
         target: 'http://localhost:8765',
         changeOrigin: true
+      },
+      '/pdf2docx': {
+        target: 'http://localhost:8766',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/pdf2docx/, '')
       }
     }
   },

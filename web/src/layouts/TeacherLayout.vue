@@ -15,6 +15,7 @@
             <el-menu-item v-for="s in allSubjects" :key="s.value" :index="s.active ? centerLink(s.value) : ''" :disabled="!s.active">{{ s.icon }} {{ s.label }}<el-tag v-if="!s.active" size="small" type="info" style="margin-left:6px;font-size:10px">待开发</el-tag></el-menu-item>
           </el-sub-menu>
           <el-menu-item index="/teacher/feedback"><el-icon><ChatLineSquare /></el-icon>学习反馈</el-menu-item>
+          <el-menu-item index="/teacher/paper-reformat"><el-icon><Document /></el-icon>PDF转Word</el-menu-item>
           <!-- 收益中心暂隐藏：收益已转为智学点，后续市场调研需提现时再开放
           <el-menu-item index="/teacher/revenue"><el-icon><Wallet /></el-icon>收益中心</el-menu-item>
           -->

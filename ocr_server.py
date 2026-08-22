@@ -49,24 +49,55 @@ async def ocr_image(file: UploadFile = File(...)):
         else:
             return {"text": "", "error": "OCR timeout"}
 
-        # 3. 下载结果，提取文字 + 图片
+        # 3. 下载结果，提取文字 + 图片 + 版面块坐标（供前端画蓝框）
         result = requests.get(json_url)
         result.raise_for_status()
         texts = []
         images = []
+        pages = []
         for line in result.text.strip().split("\n"):
             if not line.strip(): continue
             obj = json.loads(line)
-            for res in obj.get("result", {}).get("layoutParsingResults", []):
-                md = res.get("markdown", {})
-                md_text = md.get("text", "")
-                if md_text.strip():
-                    texts.append(md_text.strip())
-                # 提取 PaddleOCR 检测到的图片（已自动裁剪）
-                for img_path, img_url in md.get("images", {}).items():
-                    images.append({"name": img_path, "url": img_url})
+            result_obj = obj.get("result", {}) or {}
+            data_info = result_obj.get("dataInfo", {}) or {}
+            width = data_info.get("width")
+            height = data_info.get("height")
+            for res in result_obj.get("layoutParsingResults", []):
+                pruned = res.get("prunedResult", {}) or {}
+                md = res.get("markdown", {}) or {}
+                if not width:
+                    width = pruned.get("width")
+                if not height:
+                    height = pruned.get("height")
+                # 图片 URL（按检测顺序与 image 块一一对应）
+                image_urls = list((md.get("images") or {}).values())
+                image_idx = 0
+                blocks = []
+                for b in (pruned.get("parsing_res_list") or []):
+                    content = (b.get("block_content") or "").strip()
+                    label = b.get("block_label")
+                    image_url = None
+                    if label == "image" and image_idx < len(image_urls):
+                        image_url = image_urls[image_idx]
+                        image_idx += 1
+                        images.append({"name": "block_{}".format(b.get("block_id")), "url": image_url})
+                    if content:
+                        texts.append(content)
+                    blocks.append({
+                        "label": label,
+                        "content": content,
+                        "bbox": b.get("block_bbox"),   # [x1, y1, x2, y2] 像素坐标
+                        "order": b.get("block_order"),
+                        "imageUrl": image_url,
+                    })
+                # 若版面块未解析出文字，回退用 markdown 全文，供前端兜底
+                if not any(b.get("content") for b in blocks):
+                    md_text = (md.get("text") or "").strip()
+                    if md_text:
+                        texts.append(md_text)
+                pages.append({"width": width, "height": height, "blocks": blocks})
 
-        return {"text": "\n\n".join(texts), "lines": len(texts), "images": images}
+        return {"text": "\n\n".join(texts), "lines": len(texts), "images": images, "pages": pages}
     except Exception as e:
         # 远程 OCR 服务不可用 / Token 失效等：返回 JSON 而非 500，前端可优雅降级
         return {"text": "", "lines": 0, "images": [], "error": f"OCR 调用失败: {e}"}

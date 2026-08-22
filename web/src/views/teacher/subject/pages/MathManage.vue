@@ -30,23 +30,24 @@
           <el-button v-if="qSelection.length" type="danger" plain @click="batchDelQuestions">🗑 批量删除({{qSelection.length}})</el-button>
         </div>
         <el-table :data="pagedQuestions" stripe size="small" @selection-change="qSelection=$event">
-          <el-table-column type="selection" width="40"/>
-          <el-table-column label="题目" min-width="220" show-overflow-tooltip><template #default="{row}"><span v-html="row._titleHtml || row.title"></span></template></el-table-column>
-          <el-table-column label="知识点" width="180"><template #default="{row}"><el-tag v-if="!row.kpNames?.length" size="small" type="warning" effect="plain">待标识</el-tag><el-tag v-for="kp in (row.kpNames||[])" :key="kp" size="small" effect="plain" style="margin:1px">{{ kp }}</el-tag></template></el-table-column>
-          <el-table-column label="配图" width="70" align="center"><template #default="{row}"><el-tag :type="row.diagramImageUrl?'success':'info'" size="small">{{ row.diagramImageUrl?'有':'无' }}</el-tag></template></el-table-column>
-          <el-table-column label="老师解析" width="80" align="center"><template #default="{row}"><el-tag :type="(row.teacherAnalysis||row.teacherAnalysisImage)?'success':'info'" size="small">{{ (row.teacherAnalysis||row.teacherAnalysisImage)?'有':'无' }}</el-tag></template></el-table-column>
-          <el-table-column label="题型" width="70" align="center"><template #default="{row}"><span style="font-size:12px;color:#666">{{ row.questionType||'-' }}</span></template></el-table-column>
-          <el-table-column label="来源" width="70" align="center"><template #default="{row}"><el-tag :type="row.type==='NEW'?'success':'danger'" size="small">{{ row.type==='NEW'?'新题':'错题' }}</el-tag></template></el-table-column>
-          <el-table-column label="难度" width="75" align="center"><template #default="{row}"><el-tag :type="row.difficulty==='EASY'?'success':row.difficulty==='MEDIUM'?'warning':'danger'" size="small">{{ row.difficulty==='EASY'?'简单':row.difficulty==='MEDIUM'?'中等':'困难' }}</el-tag></template></el-table-column>
-          <el-table-column label="学生" width="80" align="center"><template #default="{row}"><span style="font-size:12px;color:#999">{{ row.studentName||'共享' }}</span></template></el-table-column>
-          <el-table-column label="日期" width="100" align="center" prop="createdAt"/>
-          <el-table-column label="操作" width="200" align="center"><template #default="{row}"><el-button size="small" text type="primary" @click="viewQuestion(row)">详情</el-button><el-button size="small" text type="warning" @click="openDraw(row)">画图</el-button><el-button size="small" text type="danger" @click="delQuestion(row)">删除</el-button></template></el-table-column>
+          <el-table-column type="selection" width="40" :selectable="isOwnQ"/>
+          <el-table-column label="题目" min-width="180" show-overflow-tooltip><template #default="{row}"><span v-html="row._titleHtml || row.title"></span></template></el-table-column>
+          <el-table-column label="知识点" width="150"><template #default="{row}"><el-tag v-if="!row.kpNames?.length" size="small" type="warning" effect="plain">待标识</el-tag><el-tag v-for="kp in (row.kpNames||[])" :key="kp" size="small" effect="plain" style="margin:1px">{{ kp }}</el-tag></template></el-table-column>
+          <el-table-column label="配图" width="60" align="center"><template #default="{row}"><el-tag :type="row.diagramImageUrl?'success':'info'" size="small">{{ row.diagramImageUrl?'有':'无' }}</el-tag></template></el-table-column>
+          <el-table-column label="老师解析" width="75" align="center"><template #default="{row}"><el-tag :type="(row.teacherAnalysis||row.teacherAnalysisImage)?'success':'info'" size="small">{{ (row.teacherAnalysis||row.teacherAnalysisImage)?'有':'无' }}</el-tag></template></el-table-column>
+          <el-table-column label="题型" width="60" align="center"><template #default="{row}"><span style="font-size:12px;color:#666">{{ row.questionType||'-' }}</span></template></el-table-column>
+          <el-table-column label="来源" width="60" align="center"><template #default="{row}"><el-tag :type="row.type==='NEW'?'success':'danger'" size="small">{{ row.type==='NEW'?'新题':'错题' }}</el-tag></template></el-table-column>
+          <el-table-column label="难度" width="65" align="center"><template #default="{row}"><el-tag :type="row.difficulty==='EASY'?'success':row.difficulty==='MEDIUM'?'warning':'danger'" size="small">{{ row.difficulty==='EASY'?'简单':row.difficulty==='MEDIUM'?'中等':'困难' }}</el-tag></template></el-table-column>
+          <el-table-column label="浏览权限" width="85" align="center"><template #default="{row}"><el-tag :type="row.shared?'success':'info'" size="small">{{ row.shared ? '共享' : '私有' }}</el-tag></template></el-table-column>
+          <el-table-column label="日期" width="90" align="center" prop="createdAt"/>
+          <el-table-column label="操作" width="130" align="center"><template #default="{row}"><el-button size="small" text type="primary" @click="viewQuestion(row)">详情</el-button><el-button v-if="isOwnQ(row)" size="small" text type="danger" @click="delQuestion(row)">删除</el-button></template></el-table-column>
         </el-table>
         <div class="mt-lg" style="text-align:right"><el-pagination v-model:current-page="qPage" :page-size="15" :total="filteredQuestions.length" layout="total, prev, pager, next" background/></div>
       </el-tab-pane>
       <el-tab-pane label="📤 上传题目" name="upload">
         <div style="max-width:620px">
-          <el-form label-width="80px">
+          <div style="margin-bottom:16px"><el-radio-group v-model="uploadMode"><el-radio-button value="single">单题上传</el-radio-button><el-radio-button value="batch">批量上传</el-radio-button></el-radio-group></div>
+          <el-form v-if="uploadMode==='single'" label-width="80px">
             <el-form-item label="题目类型">
           <el-radio-group v-model="upType"><el-radio value="NEW">新题</el-radio><el-radio value="WRONG">错题</el-radio></el-radio-group>
           <el-select v-model="upQuestionType" placeholder="题型" size="small" style="width:100px;margin-left:12px"><el-option label="选择题" value="选择题"/><el-option label="填空题" value="填空题"/><el-option label="计算题" value="计算题"/><el-option label="解答题" value="解答题"/></el-select>
@@ -67,7 +68,7 @@
               <el-form-item label="知识点"><el-select v-model="upKpIds" multiple placeholder="选择" style="width:100%"><el-option v-for="k in kps" :key="k.id" :label="k.name" :value="k.id"/></el-select></el-form-item>
               <el-form-item label="题目配图">
               <el-input v-model="upDiagramText" type="textarea" :rows="2" placeholder="直接粘贴图片（Ctrl+V）或点击上传" @paste="onUpDiagramPaste"/>
-              <div style="margin-top:4px"><el-upload action="#" :auto-upload="false" :show-file-list="false" accept="image/*" @change="onUpDiagram"><el-button size="small">📁 上传图片</el-button></el-upload></div>
+              <div style="margin-top:4px"><el-upload action="#" :auto-upload="false" :show-file-list="false" accept="image/*" @change="onUpDiagram"><el-button size="small">📁 上传图片</el-button></el-upload><el-button size="small" style="margin-left:8px" @click="openCropDiagram">✂️ 从上传图截图</el-button></div>
               <img v-if="upDiagramUrl" :src="upDiagramUrl" style="max-width:200px;max-height:120px;border-radius:6px;margin-top:6px;display:block"/><el-button v-if="upDiagramUrl" size="small" type="danger" text @click="upDiagramUrl=''">删除</el-button>
             </el-form-item>
             </template>
@@ -75,6 +76,7 @@
             <el-form-item label="解析预览" v-if="upSolPreview"><div class="up-preview-box" v-html="upSolPreview"></div></el-form-item>
             <el-form-item label=""><el-button type="primary" @click="submitUpload">✅ 提交</el-button><el-button @click="resetUp">重置</el-button></el-form-item>
           </el-form>
+          <div v-else class="batch-placeholder"><span style="font-size:40px">📤</span><p style="color:#666;margin-top:12px">支持 PDF / 图片批量识别题目、框选配图、批量入库</p><el-button type="primary" style="margin-top:16px" @click="$router.push('/teacher/subject/math/batch-upload')">进入批量上传</el-button></div>
         </div>
       </el-tab-pane>
       <el-tab-pane label="📝 试卷管理" name="exams">
@@ -239,28 +241,31 @@
     </el-dialog>
 
     <el-dialog v-model="showQDetail" title="题目详情" width="820px">
-      <div v-if="currentQ" class="q-detail"><el-row :gutter="20"><el-col :span="12"><h4>📷 原上传图片</h4><div class="img-box"><img v-if="currentQ.originalImageUrl" :src="imgUrl(currentQ.originalImageUrl)" class="detail-img"/><el-empty v-else description="无原图" :image-size="80"/></div><h4 class="mt-lg">🖼 配图</h4><div class="img-box"><img v-if="currentQ.diagramImageUrl" :src="imgUrl(currentQ.diagramImageUrl)" class="detail-img"/><el-empty v-else description="无配图" :image-size="60"/></div><div class="mt-sm"><el-button size="small" type="primary" @click="openDraw(currentQ)">🎨 画图配图</el-button><el-upload action="#" :auto-upload="false" :show-file-list="false" accept="image/*" @change="uploadDiagram" style="display:inline;margin-left:8px"><el-button size="small">📁 上传配图</el-button></el-upload></div></el-col><el-col :span="12"><h4>📝 AI 识别</h4><div class="text-box" v-html="currentQ._titleHtml || currentQ.title"></div><h4 class="mt-lg">🏷 知识点</h4><el-select v-model="currentQ.kpIds" multiple placeholder="选择" style="width:100%"><el-option v-for="k in kps" :key="k.id" :label="k.name" :value="k.id"/></el-select><h4 class="mt-lg">📊 难度</h4><el-select v-model="currentQ.difficulty" style="width:100%"><el-option label="简单" value="EASY"/><el-option label="中等" value="MEDIUM"/><el-option label="困难" value="HARD"/></el-select><h4 class="mt-lg">👨‍🏫 老师解析</h4><div v-if="!currentQ._taEditing" style="margin-bottom:8px"><div class="text-box" v-html="currentQ._taPreview || '暂无解析'"></div><el-button size="small" text type="primary" @click="currentQ._taEditing=true">✏️ 编辑</el-button></div><div v-else><el-input v-model="currentQ.teacherAnalysis" type="textarea" :rows="4" placeholder="输入文字解析...（可直接粘贴图片）" @paste="onTeacherPaste"/><div style="margin-top:4px"><el-button size="small" type="primary" @click="previewTeacherAnalysis(); currentQ._taEditing=false">✅ 确认</el-button></div></div><h4 class="mt-lg" v-if="currentQ.solution">📝 AI解答</h4><div class="text-box" v-if="currentQ.solution" v-html="currentQ._solutionHtml || currentQ.solution"></div><el-button type="primary" size="small" class="mt-lg" @click="saveQDetail">保存修改</el-button></el-col></el-row></div>
+      <div v-if="currentQ" class="q-detail"><el-row :gutter="20"><el-col :span="12"><h4>📷 原上传图片</h4><div class="img-box"><img v-if="currentQ.originalImageUrl" :src="imgUrl(currentQ.originalImageUrl)" class="detail-img"/><el-empty v-else description="无原图" :image-size="80"/></div><h4 class="mt-lg">🖼 配图</h4><div class="img-box"><img v-if="currentQ.diagramImageUrl" :src="imgUrl(currentQ.diagramImageUrl)" class="detail-img"/><el-empty v-else description="无配图" :image-size="60"/></div><div class="mt-sm" v-if="qIsOwner"><el-upload action="#" :auto-upload="false" :show-file-list="false" accept="image/*" @change="uploadDiagram"><el-button size="small">📁 上传配图</el-button></el-upload></div></el-col><el-col :span="12"><h4>📝 AI 识别</h4><div v-if="!qIsOwner" class="text-box" v-html="currentQ._titleHtml || currentQ.title"></div><template v-else><div v-if="!currentQ._titleEditing"><div class="text-box" v-html="currentQ._titleHtml || currentQ.title"></div><el-button size="small" text type="primary" @click="currentQ._titleEditing=true">✏️ 编辑</el-button></div><div v-else><el-input v-model="currentQ.title" type="textarea" :rows="4" placeholder="编辑题目内容..."/><div style="margin-top:4px"><el-button size="small" type="primary" @click="confirmTitleEdit">✅ 确认</el-button></div></div></template><h4 class="mt-lg">🏷 知识点</h4><el-select v-model="currentQ.kpIds" multiple placeholder="选择" style="width:100%" :disabled="!qIsOwner"><el-option v-for="k in kps" :key="k.id" :label="k.name" :value="k.id"/></el-select><h4 class="mt-lg">📊 难度</h4><el-select v-model="currentQ.difficulty" style="width:100%" :disabled="!qIsOwner"><el-option label="简单" value="EASY"/><el-option label="中等" value="MEDIUM"/><el-option label="困难" value="HARD"/></el-select><h4 class="mt-lg">👨‍🏫 老师解析</h4><div v-if="!qIsOwner" class="text-box" v-html="currentQ._taPreview || '暂无解析'"></div><template v-else><div v-if="!currentQ._taEditing" style="margin-bottom:8px"><div class="text-box" v-html="currentQ._taPreview || '暂无解析'"></div><el-button size="small" text type="primary" @click="currentQ._taEditing=true">✏️ 编辑</el-button></div><div v-else><el-input v-model="currentQ.teacherAnalysis" type="textarea" :rows="4" placeholder="输入文字解析...（可直接粘贴图片）" @paste="onTeacherPaste"/><div style="margin-top:4px"><el-button size="small" type="primary" @click="previewTeacherAnalysis(); currentQ._taEditing=false">✅ 确认</el-button></div></div></template><div v-if="qIsOwner" style="margin-top:16px"><span style="font-size:14px;font-weight:600">🌐 共享</span><el-radio-group v-model="currentQ.shared" style="margin-left:8px"><el-radio :value="true">共享</el-radio><el-radio :value="false">私有</el-radio></el-radio-group></div><h4 class="mt-lg" v-if="currentQ.solution">📝 AI解答</h4><div class="text-box" v-if="currentQ.solution" v-html="currentQ._solutionHtml || currentQ.solution"></div><el-button v-if="qIsOwner" type="primary" size="small" class="mt-lg" @click="saveQDetail">保存修改</el-button></el-col></el-row></div>
     </el-dialog>
 
-    <!-- 画板弹窗 -->
-    <el-dialog v-model="showDraw" title="🎨 画图配图" width="750px" :close-on-click-modal="false">
-      <div class="draw-toolbar">
-        <el-button size="small" :type="drawColor==='#333'?'primary':''" @click="drawColor='#333'" circle style="background:#333"/>
-        <el-button size="small" :type="drawColor==='#EF4444'?'primary':''" @click="drawColor='#EF4444'" circle style="background:#EF4444"/>
-        <el-button size="small" :type="drawColor==='#3B82F6'?'primary':''" @click="drawColor='#3B82F6'" circle style="background:#3B82F6"/>
-        <el-button size="small" :type="drawColor==='#10B981'?'primary':''" @click="drawColor='#10B981'" circle style="background:#10B981"/>
-        <el-slider v-model="drawWidth" :min="1" :max="8" style="width:120px"/>
-        <el-button size="small" @click="clearCanvas">🗑 清空</el-button>
-        <el-button size="small" @click="undoLast">↩ 撤销</el-button>
-        <span style="margin-left:auto;font-size:12px;color:#999">在此画图配图</span>
+    <el-dialog v-model="showCrop" title="✂️ 截图配图" width="820px" :close-on-click-modal="false" destroy-on-close>
+      <div style="text-align:center;overflow:auto">
+        <div class="crop-wrap" ref="cropWrap">
+          <img :src="cropSrc" ref="cropImgEl" class="crop-src-img" @load="initCrop" draggable="false"/>
+          <div v-if="cropReady" class="crop-box" :style="cropBoxStyle" @pointerdown="startCropDrag('move', $event)">
+            <span class="crop-handle ch-nw" @pointerdown.stop="startCropDrag('nw',$event)"></span>
+            <span class="crop-handle ch-n" @pointerdown.stop="startCropDrag('n',$event)"></span>
+            <span class="crop-handle ch-ne" @pointerdown.stop="startCropDrag('ne',$event)"></span>
+            <span class="crop-handle ch-e" @pointerdown.stop="startCropDrag('e',$event)"></span>
+            <span class="crop-handle ch-se" @pointerdown.stop="startCropDrag('se',$event)"></span>
+            <span class="crop-handle ch-s" @pointerdown.stop="startCropDrag('s',$event)"></span>
+            <span class="crop-handle ch-sw" @pointerdown.stop="startCropDrag('sw',$event)"></span>
+            <span class="crop-handle ch-w" @pointerdown.stop="startCropDrag('w',$event)"></span>
+          </div>
+        </div>
       </div>
-      <canvas ref="canvas" class="draw-canvas" @mousedown="startDraw" @mousemove="doDraw" @mouseup="stopDraw" @mouseleave="stopDraw" width="700" height="400"/>
-      <template #footer><el-button @click="showDraw=false">取消</el-button><el-button type="primary" @click="confirmDraw">✅ 确认保存配图</el-button></template>
+      <template #footer><el-button @click="showCrop=false">取消</el-button><el-button type="primary" @click="confirmCrop">✅ 提交</el-button></template>
     </el-dialog>
   </div>
 </template>
 <script setup>
-import { ref, reactive, computed, nextTick, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { Search, Plus, Camera } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getKnowledgePoints, createKnowledgePoint, updateKnowledgePoint, deleteKnowledgePoint, getKpResources } from '@/api/common/knowledge'
@@ -291,6 +296,11 @@ function isOwnKp(row) {
   // 后端 KnowledgePointVO.teacherId 为 8 位零填充 uid（formatUid）；为空 = 存量历史共享，只读
   if (row.teacherId == null) return false
   return String(row.teacherId).padStart(8, '0') === myUid.value
+}
+function isOwnQ(q) {
+  // QuestionVO.teacherId = users.id（Long），与 UserVO.id 直接对齐，非零填充 uid
+  if (!q || q.teacherId == null) return false
+  return String(q.teacherId) === String(auth.user?.id ?? '')
 }
 
 const tab = ref('kp')
@@ -521,6 +531,7 @@ async function batchDelKps(){ if(!kpSelection.value.length)return; await ElMessa
 
 const qSearch=ref(''); const qKpFilter=ref(null); const qGradeFilter=ref(''); const qTypeFilter=ref(''); const qQuestionType=ref(''); const qStudentFilter=ref(null); const qSharedFilter=ref(null); const qDateFilter=ref(''); const qPage=ref(1)
 const showQDetail=ref(false); const currentQ=ref(null)
+const qIsOwner=computed(()=>isOwnQ(currentQ.value))
 const filteredKpsForGrade = computed(() => qGradeFilter.value ? kps.value.filter(k => k.gradeLevel === qGradeFilter.value) : kps.value)
 const studentList=ref([])
 const questions=ref([
@@ -544,7 +555,7 @@ const pagedQuestions=computed(()=>{
   const start=(qPage.value-1)*15; return filteredQuestions.value.slice(start,start+15)
 })
 async function viewQuestion(q){
-  currentQ.value={...q, kpIds:(q.knowledgePointIds||'').split(',').filter(Boolean).map(Number), _taEditing:false}
+  currentQ.value={...q, kpIds:(q.knowledgePointIds||'').split(',').filter(Boolean).map(Number), shared:q.shared ?? true, _taEditing:false, _titleEditing:false}
   if (q.title) currentQ.value._titleHtml = await renderMarkdown(q.title)
   if (q.solution) currentQ.value._solutionHtml = await renderMarkdown(q.solution)
   // 如果老师解析为空，用 solution 兜底
@@ -565,6 +576,12 @@ async function onTeacherPaste(e) {
   }
 }
 async function uploadAnalysisImage(file){ if(!currentQ.value||!file.raw)return; compressAndSetImg(file.raw) }
+async function confirmTitleEdit() {
+  if (!currentQ.value) return
+  if (!(currentQ.value.title || '').trim()) { ElMessage.warning('题目内容不能为空'); return }
+  currentQ.value._titleHtml = await renderMarkdown(currentQ.value.title || '')
+  currentQ.value._titleEditing = false
+}
 async function previewTeacherAnalysis() {
   if (!currentQ.value) return
   let html = currentQ.value.teacherAnalysis ? await renderMarkdown(currentQ.value.teacherAnalysis) : ''
@@ -598,6 +615,8 @@ async function saveQDetail(){
   if(!currentQ.value) return
   try {
     await updateTeacherQuestion(currentQ.value.id, {
+      title: currentQ.value.title,
+      shared: currentQ.value.shared,
       knowledgePointIds: (currentQ.value.kpIds||[]).join(','),
       difficulty: currentQ.value.difficulty,
       teacherAnalysis: currentQ.value.teacherAnalysis,
@@ -611,28 +630,67 @@ async function saveQDetail(){
   } catch(e) { ElMessage.error(e.message||'保存失败') }
 }
 
-// === 画图功能 ===
-const showDraw=ref(false); const canvas=ref(null); const drawColor=ref('#333'); const drawWidth=ref(3)
-let drawing=false; let lastX=0; let lastY=0; const drawHistory=ref([])
-function openDraw(row){ currentQ.value=row||currentQ.value; showDraw.value=true; nextTick(()=>{loadCanvasImage()}) }
-function loadCanvasImage(){
-  const c=canvas.value; if(!c)return; const ctx=c.getContext('2d')
-  ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height)
-  if(currentQ.value?.diagramImageUrl){ const img=new Image(); img.onload=()=>{ctx.drawImage(img,0,0,c.width,c.height)}; img.src=currentQ.value.diagramImageUrl }
-}
-function startDraw(e){ drawing=true; const rect=canvas.value.getBoundingClientRect(); lastX=e.clientX-rect.left; lastY=e.clientY-rect.top }
-function doDraw(e){ if(!drawing)return; const rect=canvas.value.getBoundingClientRect(); const x=e.clientX-rect.left; const y=e.clientY-rect.top; const ctx=canvas.value.getContext('2d'); ctx.strokeStyle=drawColor.value; ctx.lineWidth=drawWidth.value; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(x,y); ctx.stroke(); lastX=x; lastY=y }
-function stopDraw(){ drawing=false }
-function clearCanvas(){ const c=canvas.value; c.getContext('2d').fillStyle='#fff'; c.getContext('2d').fillRect(0,0,c.width,c.height) }
-function undoLast(){ /* simple undo - clear */ clearCanvas() }
-function confirmDraw(){ if(!currentQ.value||!canvas.value)return; currentQ.value.diagramImageUrl=canvas.value.toDataURL(); currentQ.value.diagramStatus='MANUAL'; ElMessage.success('配图已保存'); showDraw.value=false }
-
 // === 上传题目 ===
 const upType=ref('NEW'); const upQuestionType=ref('选择题'); const upShared=ref(true); const upText=ref(''); const upImages=ref([]); const upOcrLoading=ref(false)
 const upPreviewShow=ref(false); const upPreviewHtml=ref(''); const upRawOcr=ref('')
 const upDifficulty=ref('MEDIUM'); const upKpIds=ref([]);const upDiagramUrl=ref('')
 const upDiagramText=ref('')
 const upSolText=ref(''); const upSolImages=ref([]); const upSolLoading=ref(false); const upSolRaw=ref(''); const upSolPreview=ref('')
+// 上传模式：单题 / 批量
+const uploadMode=ref('single')
+// === 截图配图 ===
+const showCrop=ref(false); const cropSrc=ref(''); const cropImgEl=ref(null); const cropWrap=ref(null); const cropReady=ref(false)
+const cropRect=reactive({x:0,y:0,w:0,h:0})
+let cropDragHandle=''; let cropDragStart=null
+const cropBoxStyle=computed(()=>({left:cropRect.x+'px',top:cropRect.y+'px',width:cropRect.w+'px',height:cropRect.h+'px'}))
+function openCropDiagram(){
+  const img=upImages.value[0]
+  if(!img){ ElMessage.warning('请先在「题目内容」上传或粘贴原图'); return }
+  cropSrc.value=img.url; cropReady.value=false; showCrop.value=true
+}
+function initCrop(){
+  const img=cropImgEl.value; if(!img) return
+  const w=img.clientWidth||img.naturalWidth; const h=img.clientHeight||img.naturalHeight
+  const cw=w*0.8, ch=h*0.8
+  cropRect.x=(w-cw)/2; cropRect.y=(h-ch)/2; cropRect.w=cw; cropRect.h=ch
+  cropReady.value=true
+}
+function startCropDrag(handle,e){
+  const img=cropImgEl.value; if(!img) return
+  cropDragHandle=handle
+  cropDragStart={x:e.clientX,y:e.clientY,left:cropRect.x,top:cropRect.y,right:cropRect.x+cropRect.w,bottom:cropRect.y+cropRect.h,imgW:img.clientWidth||img.naturalWidth,imgH:img.clientHeight||img.naturalHeight}
+  window.addEventListener('pointermove',onCropMove); window.addEventListener('pointerup',onCropUp)
+  e.preventDefault()
+}
+function onCropMove(e){
+  if(!cropDragStart) return
+  const dx=e.clientX-cropDragStart.x, dy=e.clientY-cropDragStart.y, MIN=20
+  let {left,top,right,bottom,imgW,imgH}=cropDragStart
+  if(cropDragHandle==='move'){
+    const w=right-left, h=bottom-top
+    left=Math.max(0,Math.min(cropDragStart.left+dx,imgW-w)); top=Math.max(0,Math.min(cropDragStart.top+dy,imgH-h))
+    right=left+w; bottom=top+h
+  }else{
+    if(cropDragHandle.includes('w')) left=cropDragStart.left+dx
+    if(cropDragHandle.includes('e')) right=cropDragStart.right+dx
+    if(cropDragHandle.includes('n')) top=cropDragStart.top+dy
+    if(cropDragHandle.includes('s')) bottom=cropDragStart.bottom+dy
+    left=Math.max(0,Math.min(left,right-MIN)); right=Math.min(imgW,Math.max(right,left+MIN))
+    top=Math.max(0,Math.min(top,bottom-MIN)); bottom=Math.min(imgH,Math.max(bottom,top+MIN))
+  }
+  cropRect.x=left; cropRect.y=top; cropRect.w=right-left; cropRect.h=bottom-top
+}
+function onCropUp(){
+  cropDragHandle=''; cropDragStart=null
+  window.removeEventListener('pointermove',onCropMove); window.removeEventListener('pointerup',onCropUp)
+}
+function confirmCrop(){
+  const img=cropImgEl.value; if(!img) return
+  const sx=img.naturalWidth/(img.clientWidth||img.naturalWidth); const sy=img.naturalHeight/(img.clientHeight||img.naturalHeight)
+  const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(cropRect.w*sx)); c.height=Math.max(1,Math.round(cropRect.h*sy))
+  c.getContext('2d').drawImage(img,cropRect.x*sx,cropRect.y*sy,cropRect.w*sx,cropRect.h*sy,0,0,c.width,c.height)
+  upDiagramUrl.value=c.toDataURL('image/png'); showCrop.value=false; ElMessage.success('配图已截取')
+}
 
 function onUpSolPaste(e) {
   const items = e.clipboardData?.items || []
@@ -747,10 +805,22 @@ async function doUploadOCR(){
   upOcrLoading.value=false
 }
 function onUpDiagram(file){ if(file?.raw){ upDiagramUrl.value=URL.createObjectURL(file.raw) } }
+function stripBase64Images(text){
+  // 剥离 markdown 里内嵌的 base64 data URL，避免撑爆后端 TEXT(64KB) 列
+  const images = []
+  const cleaned = (text || '').replace(/!\[[^\]]*\]\((data:image\/[^)]+)\)/gi, (_, src) => {
+    images.push(src)
+    return '[图片]'
+  }).replace(/\n{3,}/g, '\n\n').trim()
+  return { cleaned, images }
+}
 async function submitUpload(){
   if(!upRawOcr.value.trim()) return
   // 从选中知识点自动获取年级学期
   const firstKp = kps.value.find(k => upKpIds.value.includes(k.id))
+  // 剥离 title/solution 里内嵌的 base64 图（图统一由 originalImageUrl 承载）
+  const titleRes = stripBase64Images(upRawOcr.value)
+  const solRes = stripBase64Images(upSolRaw.value)
   // 原图转 base64
   let origImg = ''
   if (upImages.value[0]?.file) {
@@ -758,14 +828,19 @@ async function submitUpload(){
       const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(upImages.value[0].file)
     })
   }
+  // 文本里剥出的图，若原图位空则补进 originalImageUrl（后端已解码存 URL）
+  if (!origImg) {
+    const extracted = [...titleRes.images, ...solRes.images]
+    if (extracted.length) origImg = extracted[0]
+  }
   try {
     await uploadTeacherQuestion({
       subject:'math', type:upType.value, questionType:upQuestionType.value, shared:upShared.value,
-      title:upRawOcr.value,
+      title:titleRes.cleaned,
       difficulty:upDifficulty.value, gradeLevel:firstKp?.gradeLevel||'',
       knowledgePointIds:upKpIds.value.join(','),
       originalImageUrl:origImg, diagramImageUrl:upDiagramUrl.value,
-      solution:upSolRaw.value||'', teacherAnalysis:upSolRaw.value||'',
+      solution:solRes.cleaned, teacherAnalysis:solRes.cleaned,
       diagramStatus:upDiagramUrl.value?'MANUAL':'NONE'
     })
     ElMessage.success('上传成功'); resetUp(); loadQuestions()
@@ -778,7 +853,6 @@ watch(upRawOcr, async (v) => { if (v) upPreviewHtml.value = await renderMarkdown
 .mb-lg{margin-bottom:var(--space-lg)}.mt-lg{margin-top:var(--space-lg)}.mt-sm{margin-top:8px}.filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .q-detail h4{font-size:14px;margin-bottom:6px}.img-box{background:var(--color-bg-alt);border-radius:8px;min-height:100px;display:flex;align-items:center;justify-content:center;overflow:hidden}.detail-img{max-width:100%;max-height:260px;object-fit:contain}
 .text-box{background:#F8FAFC;padding:10px;border-radius:8px;font-size:13px;line-height:1.6;color:#555;word-break:break-word;overflow-wrap:break-word}.text-box :deep(.katex){font-size:.9em}.d-solution{background:#F0FDF4;padding:12px;border-radius:8px;font-size:13px;line-height:1.8;white-space:pre-wrap;font-family:monospace}
-.draw-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}.draw-canvas{border:2px solid var(--color-border);border-radius:12px;cursor:crosshair;width:100%;max-width:700px;display:block}
 .kpr-upload{margin-bottom:8px}.kpr-list{display:flex;flex-direction:column;gap:6px}.kpr-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--color-bg);border:1px solid var(--color-border-light)}.kpr-name{flex:1;font-size:13px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.kpr-size{font-size:11px;color:var(--text-muted)}
 .up-zone{border:2px dashed #ccc;border-radius:16px;padding:40px;text-align:center;cursor:pointer;transition:all .2s}.up-zone:hover{border-color:var(--color-primary);background:rgba(99,102,241,.04)}.up-icon{color:var(--color-primary);margin-bottom:8px}.up-zone p{font-size:14px;color:#888}.up-imgs{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.up-img-item{position:relative;width:80px;height:80px}.up-img-item img{width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid #eee}.up-img-del{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#EF4444;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer}.up-preview-box{background:#F8FAFC;padding:12px;border-radius:8px;font-size:13px;line-height:1.8;min-height:40px}.up-preview-box :deep(.katex){font-size:.9em}
 .analyzing{text-align:center;padding:40px}.az-spinner{display:flex;gap:8px;justify-content:center;margin-bottom:12px}.spinner-dot{width:10px;height:10px;border-radius:50%;background:var(--color-primary);animation:dotPulse 1.4s infinite}.spinner-dot:nth-child(2){animation-delay:.2s}.spinner-dot:nth-child(3){animation-delay:.4s}@keyframes dotPulse{0%,80%,100%{transform:scale(.6);opacity:.5}40%{transform:scale(1);opacity:1}}
@@ -798,4 +872,12 @@ watch(upRawOcr, async (v) => { if (v) upPreviewHtml.value = await renderMarkdown
 .exam-detail .hw-img-item{position:relative;width:120px;height:120px;cursor:pointer}
 .exam-detail .hw-img-item img{width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid #eee}
 .exam-detail .hw-img-item:hover img{opacity:.85}
+/* 截图配图 */
+.crop-wrap{position:relative;display:inline-block}
+.crop-src-img{display:block;max-width:760px;max-height:60vh}
+.crop-box{position:absolute;border:2px solid #3B82F6;box-sizing:border-box;cursor:move;touch-action:none}
+.crop-handle{position:absolute;width:10px;height:10px;background:#fff;border:1px solid #3B82F6;border-radius:2px;touch-action:none}
+.ch-nw{left:-6px;top:-6px;cursor:nwse-resize}.ch-n{left:50%;top:-6px;margin-left:-5px;cursor:ns-resize}.ch-ne{right:-6px;top:-6px;cursor:nesw-resize}
+.ch-e{right:-6px;top:50%;margin-top:-5px;cursor:ew-resize}.ch-se{right:-6px;bottom:-6px;cursor:nwse-resize}.ch-s{left:50%;bottom:-6px;margin-left:-5px;cursor:ns-resize}
+.ch-sw{left:-6px;bottom:-6px;cursor:nesw-resize}.ch-w{left:-6px;top:50%;margin-top:-5px;cursor:ew-resize}
 </style>

@@ -44,30 +44,48 @@
 
       <!-- 右侧试卷 -->
       <div class="eb-right">
-        <div v-for="(page, pi) in pages" :key="pi" class="eb-page-sheet" :ref="el => pageRefs[pi] = el">
-          <div class="eps-header" contenteditable @input="e => pages[pi].title = e.target.innerText">{{ page.title || '数学试卷' }}</div>
-          <div class="eps-meta">
-            <span>姓名：________</span><span>班级：________</span><span>得分：________</span>
-            <el-button v-if="pages.length > 1" size="small" text type="danger" class="page-del" @click="delPage(pi)">🗑</el-button>
-          </div>
-          <div v-for="(section, si) in page.sections" :key="si" class="eps-section" :class="{focused: focusPi===pi && focusSi===si}" @click.stop="focusPi=pi;focusSi=si">
-            <div class="epss-head" contenteditable @input="e => pages[pi].sections[si].title = e.target.innerText">
-              {{ section.title }}
-              <span class="epss-count" v-if="section.max">({{ section.questions.length }}/{{ section.max }})</span>
-              <span class="epss-full" v-if="section.max && section.questions.length >= section.max">已满</span>
+        <!-- 页码切换（多页时显示） -->
+        <div class="eb-pager" v-if="pages.length > 1">
+          <el-button size="small" :disabled="focusPi === 0" @click="prevPage">‹ 上一页</el-button>
+          <span class="eb-page-ind">第 {{ focusPi + 1 }} / {{ pages.length }} 页</span>
+          <el-button size="small" :disabled="focusPi === pages.length - 1" @click="nextPage">下一页 ›</el-button>
+          <el-button size="small" text type="danger" @click="delPage(focusPi)">🗑 删除本页</el-button>
+        </div>
+        <div class="eb-page-sheet" ref="pageSheet">
+          <template v-if="focusPi === 0">
+            <div class="eps-header" contenteditable @input="e => pages[0].title = e.target.innerText">{{ pages[0].title || '数学试卷' }}</div>
+            <div class="eps-meta">
+              <span>姓名：________</span><span>班级：________</span><span>得分：________</span>
             </div>
-            <div class="epss-questions">
-              <div v-for="(q, qi) in section.questions" :key="qi" class="epss-q">
-                <span class="epss-q-num">{{ qi + 1 }}.</span>
-                <div class="epss-q-main">
-                  <span class="epss-q-text" contenteditable @input="e => pages[pi].sections[si].questions[qi].title = e.target.innerText" v-html="q._titleHtml||q.title"/>
-                  <img v-if="q.diagramImageUrl" :src="imgUrl(q.diagramImageUrl)" class="epss-q-img"/>
-                </div>
-                <el-button size="small" text type="danger" class="epss-q-del" @click="removeQuestion(pi, si, qi)">✕</el-button>
+            <div v-for="(section, si) in pages[0].sections" :key="si" class="eps-section" :class="{focused: focusSi===si}" @click.stop="focusSi=si">
+              <div class="epss-head" contenteditable @input="e => pages[0].sections[si].title = e.target.innerText">
+                {{ section.title }}
+                <span class="epss-count" v-if="section.max">({{ section.questions.length }}/{{ section.max }})</span>
+                <span class="epss-full" v-if="section.max && section.questions.length >= section.max">已满</span>
               </div>
-              <div class="epss-empty" v-if="!section.questions.length">点击左侧题目添加到此处</div>
+              <div class="epss-questions">
+                <div v-for="(q, qi) in section.questions" :key="qi" class="epss-q">
+                  <span class="epss-q-num">{{ qi + 1 }}.</span>
+                  <div class="epss-q-main">
+                    <span class="epss-q-text" contenteditable @input="e => pages[0].sections[si].questions[qi].title = e.target.innerText" v-html="q._titleHtml||q.title"/>
+                    <img v-if="q.diagramImageUrl" :src="imgUrl(q.diagramImageUrl)" class="epss-q-img"/>
+                  </div>
+                  <el-button size="small" text type="danger" class="epss-q-del" @click="removeQuestion(0, si, qi)">✕</el-button>
+                </div>
+                <div class="epss-empty" v-if="!section.questions.length">点击左侧题目添加到此处</div>
+              </div>
             </div>
-          </div>
+          </template>
+          <template v-else>
+            <div v-for="(item, idx) in flatQuestions" :key="idx" class="epss-q">
+              <span class="epss-q-num">{{ idx + 1 }}.</span>
+              <div class="epss-q-main">
+                <span class="epss-q-text" contenteditable @input="e => pages[focusPi].sections[item.si].questions[item.qi].title = e.target.innerText" v-html="item.q._titleHtml||item.q.title"/>
+                <img v-if="item.q.diagramImageUrl" :src="imgUrl(item.q.diagramImageUrl)" class="epss-q-img"/>
+              </div>
+              <el-button size="small" text type="danger" class="epss-q-del" @click="removeQuestion(focusPi, item.si, item.qi)">✕</el-button>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -105,7 +123,7 @@ const kps = ref([])
 const questions = ref([])
 const usedQids = ref(new Set())
 const focusPi = ref(0); const focusSi = ref(0)
-const pageRefs = ref([])
+const pageSheet = ref(null)
 
 const qSearch = ref(''); const qGradeFilter = ref(''); const qKpFilter = ref(null); const qTypeFilter = ref(''); const qQuestionType = ref('')
 
@@ -125,6 +143,16 @@ const pages = ref([{ title: '数学试卷', sections: [
   { title: '三、解答题', max: 13, questions: [] },
 ] }])
 
+// 后续页：跨 section 展平成连续编号的题目列表（无分区标题）
+const flatQuestions = computed(() => {
+  const out = []
+  if (focusPi.value === 0) return out
+  const page = pages.value[focusPi.value]
+  if (!page) return out
+  page.sections.forEach((s, si) => s.questions.forEach((q, qi) => out.push({ q, si, qi })))
+  return out
+})
+
 function addToPaper(q) {
   if (usedQids.value.has(q.id)) return
   const pi = Math.min(focusPi.value, pages.value.length - 1)
@@ -135,7 +163,7 @@ function addToPaper(q) {
   sec.questions.push({ ...q })
   pages.value = [...pages.value]
   usedQids.value = new Set(usedQids.value)
-  nextTick(() => checkOverflow(pi))
+  nextTick(() => checkOverflow())
 }
 
 function imgUrl(url) {
@@ -214,10 +242,11 @@ function saveStructPreset() {
   showStructDialog.value = false
 }
 
-async function checkOverflow(pi) {
+async function checkOverflow() {
   await nextTick()
-  const el = pageRefs.value[pi]
+  const el = pageSheet.value
   if (!el || el.scrollHeight <= el.clientHeight + 40) return
+  const pi = focusPi.value
   const page = pages.value[pi]
   let lastQ = null, lastSi = -1
   for (let si = page.sections.length - 1; si >= 0; si--) {
@@ -229,8 +258,11 @@ async function checkOverflow(pi) {
   pages.value[pi + 1].sections[lastSi].questions.unshift(lastQ)
   pages.value = [...pages.value]
   await nextTick()
-  checkOverflow(pi)
+  checkOverflow()
 }
+
+function prevPage() { if (focusPi.value > 0) focusPi.value-- }
+function nextPage() { if (focusPi.value < pages.value.length - 1) focusPi.value++ }
 
 async function printExam() {
   try {
@@ -284,7 +316,9 @@ onMounted(async () => {
 .ebli-title :deep(.katex){font-size:.85em}
 .ebli-meta{display:flex;gap:6px;align-items:center;margin-top:4px;font-size:11px;color:#999}
 .eb-right{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;align-items:center;gap:20px;background:#e0e0e0}
-.eb-page-sheet{width:794px;min-height:1122px;background:#fff;padding:60px 80px;box-shadow:0 2px 16px rgba(0,0,0,.1);font-family:SimSun,serif;color:#333}
+.eb-pager{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.eb-page-ind{font-size:13px;color:#555;min-width:80px;text-align:center}
+.eb-page-sheet{width:794px;height:1122px;flex-shrink:0;background:#fff;padding:60px 80px;box-shadow:0 2px 16px rgba(0,0,0,.1);font-family:SimSun,serif;color:#333;overflow:hidden}
 .eps-header{text-align:center;font-size:22px;font-weight:700;margin-bottom:8px;outline:none;padding:4px}
 .eps-header:focus{background:rgba(99,102,241,.06)}
 .eps-meta{display:flex;gap:16px;justify-content:center;font-size:14px;color:#555;align-items:center;margin-bottom:24px}

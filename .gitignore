@@ -8,6 +8,10 @@ node_modules/
 .mcp.json
 body.json
 
+# Python
+__pycache__/
+*.pyc
+
 # Maven / IDE
 server/target/
 server/.idea/
