@@ -18,6 +18,24 @@ import router from './router'
 import App from './App.vue'
 import './assets/styles/global.css'
 
+// ============================================================
+// Edge 最小化「闪一下又弹回」修复
+// Vue Router 4.6.x 在 visibilitychange→hidden 时会调用 history.replaceState
+// 保存滚动位置；Edge 在 hidden 状态下执行 history 更新会错误触发「页面激活」，
+// 导致窗口最小化后闪一下、无法最小化（Chrome 等浏览器不受影响）。
+// 这里拦截：页面隐藏时禁止执行任何 history 操作。
+// ============================================================
+const _origPushState = window.history.pushState.bind(window.history)
+const _origReplaceState = window.history.replaceState.bind(window.history)
+window.history.pushState = function (...args) {
+  if (document.visibilityState === 'hidden') return
+  return _origPushState(...args)
+}
+window.history.replaceState = function (...args) {
+  if (document.visibilityState === 'hidden') return
+  return _origReplaceState(...args)
+}
+
 const app = createApp(App)
 const pinia = createPinia()
 
