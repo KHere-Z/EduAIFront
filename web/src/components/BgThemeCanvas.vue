@@ -143,14 +143,26 @@ function tick(now) {
 
 watch(() => props.theme, () => { items = [] })
 
+function onVisibility() {
+  // 页面隐藏/最小化时暂停动画，避免 GPU 空转并在最小化瞬间触发闪烁
+  if (document.hidden) {
+    cancelAnimationFrame(raf)
+    raf = null
+  } else if (!raf) {
+    raf = requestAnimationFrame(tick)
+  }
+}
+
 onMounted(() => {
   resize()
   window.addEventListener('resize', resize)
+  document.addEventListener('visibilitychange', onVisibility)
   raf = requestAnimationFrame(tick)
 })
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf)
   window.removeEventListener('resize', resize)
+  document.removeEventListener('visibilitychange', onVisibility)
 })
 </script>
 

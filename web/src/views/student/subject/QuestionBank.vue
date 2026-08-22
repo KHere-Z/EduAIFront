@@ -196,9 +196,9 @@
         </div>
       </div>
 
-      <div class="fs-wrap" :class="{writingFull:fsWritingFull}">
+      <div class="fs-wrap">
         <!-- 知识点侧边栏 -->
-        <aside class="fs-sidebar" v-show="!fsWritingFull">
+        <aside class="fs-sidebar">
           <div class="fs-side-title">📚 知识点</div>
           <div class="fs-kp-item" v-for="kp in fsKpList" :key="kp.name" :class="{active:fsActiveKp===kp.name}" @click="selectFsKp(kp.name)">
             <span class="fsk-name">{{ kp.name }}</span>
@@ -210,7 +210,7 @@
         <div class="fs-body">
           <div v-if="fsQuestion" class="fs-main">
             <!-- ── 题目区域（上半部分） ── -->
-            <div class="fs-question-area" v-show="!fsWritingFull">
+            <div class="fs-question-area">
               <div class="fs-q-left">
                 <div class="fs-q-tags">
                   <el-tag v-if="!fsQuestion.kpNames?.length" size="small" type="warning" effect="plain">待老师标识知识点</el-tag>
@@ -228,55 +228,8 @@
 
             <!-- ── 答题区域（下半部分） ── -->
             <div class="fs-answer-area" v-if="!fsSubmitted">
-              <div class="fs-answer-tabs">
-                <span :class="{active:fsAnswerMode==='draw'}" @click="switchAnswerMode('draw')">✏️ 手写作答</span>
-                <span :class="{active:fsAnswerMode==='upload'}" @click="switchAnswerMode('upload')">📷 上传答题图片</span>
-              </div>
-
-              <!-- 手写画布 -->
-              <div v-if="fsAnswerMode==='draw'" class="fs-draw-wrap">
-                <div class="fs-draw-tools">
-                  <span class="fst-color" v-for="c in drawColors" :key="c" :style="{background:c}" :class="{active:drawColor===c && !isEraser}" @click="drawColor=c;isEraser=false"></span>
-                  <el-divider direction="vertical" />
-                  <span class="fst-width" v-for="w in drawWidths" :key="w" :class="{active:drawWidth===w}" @click="drawWidth=w">
-                    <span class="fstw-dot" :style="{width:w*2+'px',height:w*2+'px'}"></span>
-                  </span>
-                  <template v-if="isEraser">
-                    <el-divider direction="vertical" />
-                    <span class="fst-label">橡皮:</span>
-                    <span class="fst-width" v-for="w in eraserWidths" :key="w" :class="{active:eraserWidth===w}" @click="eraserWidth=w">
-                      <span class="fstw-dot eraser-dot" :style="{width:w*1.2+'px',height:w*1.2+'px'}"></span>
-                    </span>
-                  </template>
-                  <el-divider direction="vertical" />
-                  <el-button size="small" :type="isEraser?'warning':''" @click="isEraser=!isEraser">🧹 橡皮</el-button>
-                  <el-button size="small" @click="clearCanvas">🗑 清空</el-button>
-                  <el-button size="small" @click="undoStroke">↩ 撤销</el-button>
-                  <el-button size="small" :type="fsWritingFull?'success':''" @click="toggleWritingFull">📐 {{ fsWritingFull ? '退出全屏书写' : '全屏书写' }}</el-button>
-                </div>
-                <div class="fs-canvas-wrap"
-                  @mousemove="onCanvasMove"
-                  @mouseleave="eraserPos.show=false"
-                >
-                  <canvas
-                    ref="fsCanvas"
-                    class="fs-canvas" :class="{eraser:isEraser}"
-                    @mousedown="startDraw"
-                    @mousemove="onDraw"
-                    @mouseup="endDraw"
-                    @mouseleave="endDraw"
-                    @touchstart.prevent="startDrawTouch"
-                    @touchmove.prevent="onDrawTouch"
-                    @touchend="endDraw"
-                  ></canvas>
-                  <div v-if="isEraser && eraserPos.show" class="fs-eraser-cursor"
-                    :style="{left:eraserPos.x+'px',top:eraserPos.y+'px',width:eraserWidth+'px',height:eraserWidth+'px'}">
-                  </div>
-                </div>
-              </div>
-
               <!-- 上传答题图片 -->
-              <div v-if="fsAnswerMode==='upload'" class="fs-upload-wrap">
+              <div class="fs-upload-wrap">
                 <label class="fs-upload-zone" v-if="!uploadedAnswerImg">
                   <div class="fuz-icon">📷</div>
                   <div class="fuz-text">点击上传答题图片</div>
@@ -285,7 +238,7 @@
                 </label>
                 <div v-else class="fs-upload-preview">
                   <img :src="uploadedAnswerImg" class="fup-img" />
-                  <el-button size="small" type="danger" plain @click="uploadedAnswerImg=''">重新上传</el-button>
+                  <el-button size="small" type="danger" plain @click="uploadedAnswerImg=''; uploadedAnswerFile=null">重新上传</el-button>
                 </div>
               </div>
 
@@ -298,7 +251,7 @@
             </div>
 
             <!-- ── AI 批改结果 ── -->
-            <div class="fs-result-area" v-if="fsSubmitted && fsAiResult && !fsWritingFull">
+            <div class="fs-result-area" v-if="fsSubmitted && fsAiResult">
               <div class="fsr-header">
                 <span class="fsr-title">🤖 AI 批改结果</span>
                 <el-tag :type="fsAiCorrect ? 'success' : 'danger'" size="small">{{ fsAiCorrect ? '✓ 回答正确' : '✗ 存在错误' }}</el-tag>
@@ -319,13 +272,13 @@
             </div>
 
             <!-- ── 解析区域（可展开） ── -->
-            <div class="fs-answer" v-if="showFsAnswer && fsQuestion.solution && !fsWritingFull">
+            <div class="fs-answer" v-if="showFsAnswer && fsQuestion.solution">
               <div class="fsa-title">💡 答案解析</div>
               <div class="d-solution" v-html="fsSolutionHtml"></div>
             </div>
 
             <!-- ── 底部操作栏（原有功能保留） ── -->
-            <div class="fs-bottom-bar" v-show="!fsWritingFull">
+            <div class="fs-bottom-bar">
               <div class="fsb-left">
                 <span class="fsb-label">掌握度：</span>
                 <el-radio-group v-model="fsQuestion.mastery" size="small" @change="updateFsMastery">
@@ -353,12 +306,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
-import { ElMessage } from "element-plus"
+import { ref, computed, onMounted, watch } from 'vue'
+import { ElMessage, ElMessageBox } from "element-plus"
+import { useRouter, useRoute } from 'vue-router'
 import { getStudentWrongQuestions, getStudentNewQuestions, getSimilarQuestions } from "@/api/common/questions"
 import http from '@/api/request'
 import { renderMarkdown, sanitizeHtml } from '@/utils/markdown'
 import { resolveStaticUrl } from '@/utils/url'
+const router = useRouter(); const route = useRoute()
 const tab = ref('wrong'); const filterKps = ref([]); const filterMastery = ref(''); const filterDiff = ref(''); const filterGrade = ref('')
 const showDetail = ref(false); const currentQ = ref(null); const zoomDiagram = ref(false); const isFullscreen = ref(false); const fsQuestion = ref(null); const showFsAnswer = ref(false); const showAnalysis = ref(false); const fsSolutionHtml = ref('')
 let fsIdx = 0; const fsPool = ref([]); const fsActiveKp = ref(''); const fsKpList = ref([]); const completedSet = ref(new Set())
@@ -412,7 +367,6 @@ const questions = ref([
 ])
 
 // ═══════════ 答题相关状态 ═══════════
-const fsAnswerMode = ref('draw')  // 'draw' | 'upload'
 const fsSubmitted = ref(false)
 const fsAiResult = ref('')
 const fsAiCorrect = ref(false)
@@ -422,219 +376,56 @@ const lastAnswerImage = ref('')
 const lastAnswerHtml = ref('')
 watch([lastAnswerText], async ([v]) => { if (v) lastAnswerHtml.value = await renderMarkdown(v) })
 const uploadedAnswerImg = ref('')
+const uploadedAnswerFile = ref(null)
 const zoomFsDiagram = ref(false)
-const fsCanvas = ref(null)
 
-// 画图相关
-const drawColor = ref('#333333')
-const drawColors = ['#333333', '#E53935', '#1E88E5', '#43A047', '#FB8C00']
-const drawWidth = ref(2.5)
-const drawWidths = [1.5, 2.5, 4, 6]
-const isEraser = ref(false)
-const eraserWidth = ref(14)
-const eraserWidths = [8, 14, 22, 32]
-const eraserPos = reactive({ x: 0, y: 0, show: false })
-const fsWritingFull = ref(false)
-function toggleWritingFull() { fsWritingFull.value = !fsWritingFull.value; setTimeout(() => initCanvas(), 100) }
-function getDrawColor() { return isEraser.value ? '#FFFFFF' : drawColor.value }
-function getDrawWidth() { return isEraser.value ? eraserWidth.value : drawWidth.value }
-function onCanvasMove(e) {
-  if (!isEraser.value) return
-  updateEraserPos(e)
-}
-function updateEraserPos(e) {
-  const canvas = fsCanvas.value
-  const rect = canvas.getBoundingClientRect()
-  eraserPos.x = e.clientX - rect.left
-  eraserPos.y = e.clientY - rect.top
-  eraserPos.show = true
-}
-let isDrawing = false
-let strokeHistory = []  // 存储每笔画的路径
-let currentStroke = []
-
-function switchAnswerMode(mode) {
-  fsAnswerMode.value = mode
-  fsSubmitted.value = false
-  fsAiResult.value = ''
-  fsSentToTeacher.value = false
-  if (mode === 'draw') nextTick(() => initCanvas())
-}
-
-const canSubmit = computed(() => {
-  if (fsAnswerMode.value === 'upload') return !!uploadedAnswerImg.value
-  return true  // 手写作答模式下始终可提交
-})
-
-// ═══════════ Canvas 绘图 ═══════════
-function initCanvas() {
-  nextTick(() => {
-    const canvas = fsCanvas.value
-    if (!canvas) return
-    const parent = canvas.parentElement
-    canvas.width = parent.clientWidth - 4
-    canvas.height = Math.max(280, parent.clientHeight - (fsWritingFull.value ? 4 : 44))
-    const ctx = canvas.getContext('2d')
-    ctx.strokeStyle = getDrawColor()
-    ctx.lineWidth = getDrawWidth()
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    redrawCanvas()
-  })
-}
-
-function getPos(e) {
-  const canvas = fsCanvas.value
-  const rect = canvas.getBoundingClientRect()
-  return { x: e.clientX - rect.left, y: e.clientY - rect.top }
-}
-
-function getTouchPos(e) {
-  const canvas = fsCanvas.value
-  const rect = canvas.getBoundingClientRect()
-  const t = e.touches[0]
-  return { x: t.clientX - rect.left, y: t.clientY - rect.top }
-}
-
-function startDraw(e) {
-  isDrawing = true
-  const pos = getPos(e)
-  currentStroke = [{ x: pos.x, y: pos.y, color: getDrawColor(), width: getDrawWidth() }]
-  const ctx = fsCanvas.value.getContext('2d')
-  ctx.strokeStyle = getDrawColor()
-  ctx.lineWidth = getDrawWidth()
-  ctx.beginPath()
-  ctx.moveTo(pos.x, pos.y)
-}
-
-function onDraw(e) {
-  if (isEraser.value) updateEraserPos(e)
-  if (!isDrawing) return
-  const pos = getPos(e)
-  currentStroke.push({ x: pos.x, y: pos.y, color: getDrawColor(), width: getDrawWidth() })
-  const ctx = fsCanvas.value.getContext('2d')
-  ctx.lineTo(pos.x, pos.y)
-  ctx.stroke()
-}
-
-function startDrawTouch(e) {
-  isDrawing = true
-  const pos = getTouchPos(e)
-  currentStroke = [{ x: pos.x, y: pos.y, color: getDrawColor(), width: getDrawWidth() }]
-  const ctx = fsCanvas.value.getContext('2d')
-  ctx.strokeStyle = getDrawColor()
-  ctx.lineWidth = getDrawWidth()
-  ctx.beginPath()
-  ctx.moveTo(pos.x, pos.y)
-}
-
-function onDrawTouch(e) {
-  if (isEraser.value) updateEraserPos(e.touches[0])
-  if (!isDrawing) return
-  const pos = getTouchPos(e)
-  currentStroke.push({ x: pos.x, y: pos.y, color: getDrawColor(), width: getDrawWidth() })
-  const ctx = fsCanvas.value.getContext('2d')
-  ctx.lineTo(pos.x, pos.y)
-  ctx.stroke()
-}
-
-function endDraw() {
-  if (!isDrawing) return
-  isDrawing = false
-  if (currentStroke.length > 0) {
-    strokeHistory.push([...currentStroke])
-    currentStroke = []
-  }
-}
-
-function redrawCanvas() {
-  const canvas = fsCanvas.value
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-  strokeHistory.forEach(stroke => {
-    if (stroke.length < 1) return
-    ctx.strokeStyle = stroke[0].color || drawColor.value
-    ctx.lineWidth = stroke[0].width || getDrawWidth()
-    ctx.beginPath()
-    ctx.moveTo(stroke[0].x, stroke[0].y)
-    for (let i = 1; i < stroke.length; i++) {
-      ctx.lineTo(stroke[i].x, stroke[i].y)
-    }
-    ctx.stroke()
-  })
-}
-
-function clearCanvas() {
-  strokeHistory = []
-  currentStroke = []
-  redrawCanvas()
-}
-
-function undoStroke() {
-  strokeHistory.pop()
-  redrawCanvas()
-}
+const canSubmit = computed(() => !!uploadedAnswerImg.value && !!uploadedAnswerFile.value)
 
 // ═══════════ 提交 & AI 批改 ═══════════
 function onAnswerImgUpload(e) {
   const f = e.target.files?.[0]
-  if (f) uploadedAnswerImg.value = URL.createObjectURL(f)
+  if (f) { uploadedAnswerFile.value = f; uploadedAnswerImg.value = URL.createObjectURL(f) }
   e.target.value = ''
 }
 
 async function submitAnswer() {
-  if (!canSubmit.value) return
+  if (!canSubmit.value || !fsQuestion.value) return
+
+  // 智学点消耗检查（5 点）
+  try {
+    const pts = await http.get('/user/points')
+    const balance = pts?.points ?? pts?.data?.points ?? 0
+    if (balance < 5) {
+      ElMessageBox.confirm(`智学点不足！当前余额 ${balance} 点，本次 AI 批改需消耗 5 点。是否前往充值？`, '智学点不足', { confirmButtonText:'去充值', cancelButtonText:'取消', type:'warning' })
+        .then(() => router.push('/' + (route.path.startsWith('/teacher') ? 'teacher' : 'student') + '/recharge'))
+      return
+    }
+    await ElMessageBox.confirm(`本次 AI 批改将消耗 5 智学点（当前余额 ${balance} 点），是否继续？`, '确认消耗', { confirmButtonText:'确认批改', cancelButtonText:'取消', type:'info' })
+  } catch (e) { if (e !== 'confirm') return }
+
   ElMessage.info('AI 正在批改你的答案…')
 
-  // 收集答案内容
-  let answerText = ''
-  let answerImage = ''
-  if (fsAnswerMode.value === 'upload' && uploadedAnswerImg.value) {
-    answerImage = uploadedAnswerImg.value
-    // OCR 识别上传的答题图片
-    try {
-      const blob = await fetch(uploadedAnswerImg.value).then(r => r.blob())
-      const fd = new FormData(); fd.append('file', blob, 'answer.png')
-      const res = await fetch('/ocr', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (data.text) answerText = data.text
-    } catch {}
-  } else if (fsAnswerMode.value === 'draw') {
-    const canvas = fsCanvas.value
-    if (canvas) answerImage = canvas.toDataURL('image/png')
-    // OCR 识别手写作答
-    try {
-      const blob = await fetch(answerImage).then(r => r.blob())
-      const fd = new FormData(); fd.append('file', blob, 'draw.png')
-      const res = await fetch('/ocr', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (data.text) answerText = data.text
-    } catch {}
-  }
+  // 保存「上次答题」图片（本地展示）
+  lastAnswerImage.value = uploadedAnswerImg.value
+  lastAnswerText.value = ''
 
-  // 保存答案
-  lastAnswerText.value = answerText
-  lastAnswerImage.value = answerImage
-  if (fsQuestion.value) {
-    http.put(`/student/questions/${fsQuestion.value.id}/mastery`, {
-      answer: (answerText + (answerImage ? `\n![](${answerImage})` : '')).trim()
-    }).catch(() => {})
-  }
-
-  // 模拟 AI 批改
-  await new Promise(r => setTimeout(r, 1500 + Math.random() * 2000))
-  const correct = Math.random() > 0.4
-  fsAiCorrect.value = correct
-  fsSubmitted.value = true
-  if (correct) {
-    fsAiResult.value = `<div class="fsr-correct">🎉 <b>回答正确！</b></div>
-      <p>你的解题思路清晰，步骤完整。继续保持！</p>
-      <div class="fsr-tip">💡 <b>AI 点评：</b>答题规范，建议再检查一下单位是否遗漏。</div>`
-  } else {
-    fsAiResult.value = `<div class="fsr-wrong">⚠️ <b>发现以下问题：</b></div>
-      <ol><li><b>步骤②</b>：公式代入时符号处理有误</li><li><b>步骤④</b>：最终答案缺少单位</li><li>建议回顾：<b>二次函数配方法</b></li></ol>
-      <div class="fsr-tip">💡 <b>AI 建议：</b>在配方时注意括号展开的符号变化，建议重新练习同类题3道。</div>`
+  // 提交 AI 批改（multipart，字段名必须是 file）
+  const fd = new FormData()
+  fd.append('file', uploadedAnswerFile.value)
+  try {
+    const res = await http.post(`/student/questions/${fsQuestion.value.id}/grade`, fd)
+    // res 已由拦截器解包为 { correct, result, cached }
+    fsAiCorrect.value = res.correct
+    fsAiResult.value = await renderMarkdown(res.result || '')
+    fsSubmitted.value = true
+    if (res.cached) ElMessage.info('该题已批改过，本次未扣智学点')
+  } catch (e) {
+    // 余额不足（后端兜底）：拦截器已弹错误，这里补跳充值
+    if (/智学点不足/.test(e?.message || '')) {
+      ElMessageBox.confirm('智学点不足，是否前往充值？', '智学点不足', { confirmButtonText:'去充值', cancelButtonText:'取消', type:'warning' })
+        .then(() => router.push('/' + (route.path.startsWith('/teacher') ? 'teacher' : 'student') + '/recharge'))
+    }
+    // 401/403/404/500 已由拦截器统一提示，不重复处理
   }
 }
 
@@ -827,13 +618,10 @@ function enterFullscreen() {
   isFullscreen.value = true; seconds = 0; elapsed.value = '00:00'; fsIdx = 0; showFsAnswer.value = false
   completedSet.value = new Set(filteredQuestions.value.filter(q => q.mastery === 'MASTERED' || q.completed).map(q => q.id))
   // 重置答题状态
-  fsAnswerMode.value = 'draw'
   fsSubmitted.value = false
   fsAiResult.value = ''
   fsSentToTeacher.value = false
   uploadedAnswerImg.value = ''
-  strokeHistory = []
-  currentStroke = []
   timer = setInterval(() => { seconds++; const m=Math.floor(seconds/60).toString().padStart(2,'0'); const s=(seconds%60).toString().padStart(2,'0'); elapsed.value=`${m}:${s}` }, 1000)
   const pool = filteredQuestions.value
   const kpMap = {}
@@ -842,19 +630,16 @@ function enterFullscreen() {
   fsPool.value = pool; fsActiveKp.value = ''
   setFsQuestion(pool.length ? pool[0] : null)
   document.addEventListener('keydown', onKeyDown)
-  nextTick(() => { if (fsAnswerMode.value === 'draw') initCanvas() })
 }
 function selectFsKp(kpName) {
   fsActiveKp.value = kpName; fsIdx = 0; showFsAnswer.value = false
   resetAnswerState()
   fsPool.value = filteredQuestions.value.filter(q => q.kpNames.includes(kpName))
   setFsQuestion(fsPool.value.length ? fsPool.value[0] : null)
-  nextTick(() => { if (fsAnswerMode.value === 'draw') initCanvas() })
 }
 function resetAnswerState() {
   fsSubmitted.value = false; fsAiResult.value = ''; fsSentToTeacher.value = false
-  uploadedAnswerImg.value = ''; strokeHistory = []; currentStroke = []; isEraser.value = false
-  fsWritingFull.value = false; lastAnswerText.value = ''; lastAnswerImage.value = ''; lastAnswerHtml.value = ''
+  uploadedAnswerImg.value = ''; uploadedAnswerFile.value = null; lastAnswerText.value = ''; lastAnswerImage.value = ''; lastAnswerHtml.value = ''
 }
 function exitFullscreen() { isFullscreen.value = false; clearInterval(timer); document.removeEventListener('keydown', onKeyDown) }
 function onKeyDown(e) { if (e.key === 'Escape') exitFullscreen() }
@@ -867,7 +652,6 @@ function fsGoNext() {
   const pool = fsActiveKp.value ? fsPool.value : filteredQuestions.value
   setFsQuestion(fsIdx < pool.length ? pool[fsIdx] : null)
   if (!fsQuestion.value) exitFullscreen()
-  else nextTick(() => { if (fsAnswerMode.value === 'draw') initCanvas() })
 }
 </script>
 
@@ -982,35 +766,6 @@ function fsGoNext() {
 
 /* 答题区域 */
 .fs-answer-area { flex: 1; display: flex; flex-direction: column; background: rgba(255,255,255,.8); border-radius: 16px; padding: 16px 20px; min-height: 0; }
-.fs-answer-tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-shrink: 0; }
-.fs-answer-tabs span {
-  padding: 7px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all .2s;
-  background: rgba(255,255,255,.6); color: #888; font-weight: 500;
-}
-.fs-answer-tabs span:hover { background: #fff; color: #555; }
-.fs-answer-tabs span.active { background: var(--color-primary); color: #fff; font-weight: 700; }
-
-/* 手写画布 */
-.fs-draw-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.fs-draw-tools { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-shrink: 0; }
-.fst-color { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all .15s; }
-.fst-color:hover { transform: scale(1.15); }
-.fst-color.active { border-color: #333; box-shadow: 0 0 0 2px rgba(0,0,0,.1); }
-.fst-width { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all .15s; }
-.fst-width:hover { background: rgba(0,0,0,.04); }
-.fst-width.active { border-color: #999; background: rgba(0,0,0,.04); }
-.fstw-dot { border-radius: 50%; background: #333; }
-.eraser-dot { background: #bbb; border: 1px solid #ddd; }
-.fst-label { font-size: 12px; color: #999; flex-shrink: 0; }
-.fs-canvas-wrap { flex: 1; position: relative; min-height: 200px; overflow: hidden; border-radius: 12px; border: 1px solid var(--color-border); background: #fff; }
-.fs-canvas { display: block; cursor: crosshair; touch-action: none; }
-.fs-canvas.eraser { cursor: none; }
-.fs-eraser-cursor {
-  position: absolute; pointer-events: none; z-index: 10;
-  border: 2px solid #333; background: rgba(255,255,255,.85);
-  border-radius: 2px; transform: translate(-50%, -50%);
-}
-
 /* 上传答题 */
 .fs-upload-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
 .fs-upload-zone {
@@ -1090,15 +845,6 @@ function fsGoNext() {
 .fs-q { font-size: 20px; line-height: 2; margin-bottom: 32px; color: #333; }
 .fs-actions { display: flex; gap: 12px; justify-content: center; margin-bottom: 20px; }
 .fs-bottom { display: flex; gap: 16px; justify-content: center; margin-top: 12px; }
-
-/* 全屏书写模式 */
-.fs-wrap.writingFull .fs-body { padding: 0; overflow: hidden; }
-.fs-wrap.writingFull .fs-main { padding: 4px; gap: 0; flex: 1; height: 100%; }
-.fs-wrap.writingFull .fs-answer-area { flex: 1; border-radius: 12px; overflow: hidden; }
-.fs-wrap.writingFull .fs-draw-wrap { flex: 1; overflow: hidden; }
-.fs-wrap.writingFull .fs-draw-tools { flex-shrink: 0; }
-.fs-wrap.writingFull .fs-canvas-wrap { flex: 1; min-height: 0; }
-.fs-wrap.writingFull .fs-submit-row { flex-shrink: 0; }
 
 @media (max-width: 768px) {
   .fs-sidebar { display: none; }
