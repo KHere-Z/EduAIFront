@@ -189,7 +189,7 @@
       <div class="fs-top">
         <span class="fs-timer">{{ elapsed }}</span>
         <div class="fs-progress-bar"><span class="fs-pb-fill" :style="{width:(fsCompletedCount/fsPool.length*100)+'%'}"></span></div>
-        <span class="fs-progress">{{ fsCompletedCount }}/{{ fsPool.length }} 已完成</span>
+        <span class="fs-progress" title="将题目掌握度标记为「已掌握」即计为完成一题">{{ fsCompletedCount }}/{{ fsPool.length }} 已完成<span class="fs-progress-hint">（掌握度「已掌握」计 1 题）</span></span>
         <div class="fs-top-right">
           <el-button size="small" text type="primary" @click="showFsAnswer=!showFsAnswer">💡 解析</el-button>
           <el-button size="small" type="danger" text @click="exitFullscreen">退出 (ESC)</el-button>
@@ -247,6 +247,9 @@
                 <el-button type="primary" size="large" @click="submitAnswer" :disabled="!canSubmit">
                   ✅ 确认提交 · AI 批改
                 </el-button>
+                <el-button size="large" @click="saveAnswerOnly" :disabled="!canSubmit">
+                  💾 不批改，直接保存
+                </el-button>
               </div>
             </div>
 
@@ -257,18 +260,16 @@
                 <el-tag :type="fsAiCorrect ? 'success' : 'danger'" size="small">{{ fsAiCorrect ? '✓ 回答正确' : '✗ 存在错误' }}</el-tag>
               </div>
               <div class="fsr-body" v-html="fsAiResult"></div>
-              <div class="fsr-actions">
-                <el-button type="warning" plain @click="disputeToTeacher" :disabled="fsSentToTeacher">
-                  {{ fsSentToTeacher ? '✓ 已送往老师批改' : '⚖️ 有争议？送老师批改' }}
-                </el-button>
-              </div>
             </div>
 
             <!-- ── 上次答题 ── -->
             <div class="fs-last-answer" v-if="lastAnswerText||lastAnswerImage">
               <div class="fsa-title">📋 上次答题 <span style="font-size:12px;color:#999;font-weight:400">（提交后保存）</span></div>
               <div class="text-box" v-html="lastAnswerHtml" v-if="lastAnswerHtml"></div>
-              <img v-if="lastAnswerImage" :src="lastAnswerImage" style="max-width:100%;max-height:200px;border-radius:8px;margin-top:4px"/>
+              <div v-if="lastAnswerImage" class="fsa-img-wrap">
+                <img :src="lastAnswerImage" style="max-width:100%;max-height:200px;border-radius:8px"/>
+                <button class="fsa-img-del" title="删除上次答题" @click="deleteLastAnswer">×</button>
+              </div>
             </div>
 
             <!-- ── 解析区域（可展开） ── -->
@@ -321,6 +322,11 @@ const fsCompletedCount = computed(() => fsPool.value.filter(q => completedSet.va
 async function setFsQuestion(q) {
   if (q && q.title) q._titleHtml = await renderMarkdown(q.title)
   fsQuestion.value = q
+  // 切题时恢复该题的「上次答题」
+  const saved = q ? savedAnswers.get(q.id) : null
+  lastAnswerText.value = saved?.text || ''
+  lastAnswerImage.value = saved?.image || ''
+  lastAnswerHtml.value = ''
 }
 watch([showFsAnswer, fsQuestion], async ([show, q]) => {
   if (!show || !q?.solution) return
@@ -330,7 +336,7 @@ watch([showFsAnswer, fsQuestion], async ([show, q]) => {
   text = text.split('\n').map(line => /\\[a-zA-Z]/.test(line) && !/\$/.test(line) ? `$$${line}$$` : line).join('\n')
   fsSolutionHtml.value = await renderMarkdown(text)
 })
-onMounted(async () => { try { const stageGrades = grades.value.join(','); const wr = await getStudentWrongQuestions({ subject:"math", pageSize:200 }); const nw = await getStudentNewQuestions({ subject:"math", gradeLevel:stageGrades, pageSize:200 }); const diffMap={EASY:{label:"简单",tag:"success"},MEDIUM:{label:"中等",tag:"warning"},HARD:{label:"困难",tag:"danger"}}; const mastMap={UNMASTERED:{label:"未掌握",tag:"danger"},FAMILIAR:{label:"熟悉中",tag:"warning"},MASTERED:{label:"已掌握",tag:"success"}}; const mapper = q => ({...q,kpNames:(q.knowledgePointNames||"").split(",").filter(Boolean) || [],diffTag:diffMap[q.difficulty]?.tag||"info",masteryTag:mastMap[q.mastery]?.tag||"info",masteryLabel:mastMap[q.mastery]?.label||"未掌握",date:q.createdAt?.slice(0,10)||""}); questions.value = [...(wr.list||[]).map(q=>mapper({...q,type:"WRONG"})), ...(nw.list||[]).map(q=>mapper({...q,type:"NEW"}))]; for (const q of questions.value) { if (q.title) q._titleHtml = await renderMarkdown(q.title) } } catch {} })
+onMounted(async () => { try { const stageGrades = grades.value.join(','); const wr = await getStudentWrongQuestions({ subject:"math", pageSize:200 }); const nw = await getStudentNewQuestions({ subject:"math", gradeLevel:stageGrades, pageSize:200 }); const diffMap={EASY:{label:"简单",tag:"success"},MEDIUM:{label:"中等",tag:"warning"},HARD:{label:"困难",tag:"danger"}}; const mastMap={UNMASTERED:{label:"未掌握",tag:"danger"},FAMILIAR:{label:"熟悉中",tag:"warning"},MASTERED:{label:"已掌握",tag:"success"}}; const mapper = q => ({...q,kpNames:(q.knowledgePointNames||"").split(",").filter(Boolean) || [],diffTag:diffMap[q.difficulty]?.tag||"info",masteryTag:mastMap[q.mastery]?.tag||"info",masteryLabel:mastMap[q.mastery]?.label||"未掌握",date:q.createdAt?.slice(0,10)||""}); questions.value = [...(wr.list||[]).map(q=>mapper({...q,type:"WRONG"})), ...(nw.list||[]).map(q=>mapper({...q,type:"NEW"}))]; for (const q of questions.value) { if (q.lastAnswerImageUrl) savedAnswers.set(q.id, { image: q.lastAnswerImageUrl, text: '' }); if (q.title) q._titleHtml = await renderMarkdown(q.title) } } catch {} })
 const elapsed = ref('00:00'); let timer = null; let seconds = 0
 import { useAuthStore } from '@/store/auth'
 const auth = useAuthStore()
@@ -370,13 +376,15 @@ const questions = ref([
 const fsSubmitted = ref(false)
 const fsAiResult = ref('')
 const fsAiCorrect = ref(false)
-const fsSentToTeacher = ref(false)
 const lastAnswerText = ref('')
 const lastAnswerImage = ref('')
 const lastAnswerHtml = ref('')
 watch([lastAnswerText], async ([v]) => { if (v) lastAnswerHtml.value = await renderMarkdown(v) })
 const uploadedAnswerImg = ref('')
 const uploadedAnswerFile = ref(null)
+// 每个题目「上次答题」会话级缓存（questionId -> { image, text }），
+// 用于再次回到该题时展示上一次提交的答案（只保留最近一次，覆盖式）
+const savedAnswers = new Map()
 const zoomFsDiagram = ref(false)
 
 const canSubmit = computed(() => !!uploadedAnswerImg.value && !!uploadedAnswerFile.value)
@@ -408,6 +416,7 @@ async function submitAnswer() {
   // 保存「上次答题」图片（本地展示）
   lastAnswerImage.value = uploadedAnswerImg.value
   lastAnswerText.value = ''
+  savedAnswers.set(fsQuestion.value.id, { image: uploadedAnswerImg.value, text: '' })
 
   // 提交 AI 批改（multipart，字段名必须是 file）
   const fd = new FormData()
@@ -429,10 +438,35 @@ async function submitAnswer() {
   }
 }
 
-function disputeToTeacher() {
-  if (fsSentToTeacher.value) return
-  fsSentToTeacher.value = true
-  ElMessage.success('答题内容已转为图片，送往老师端批改。请等待老师反馈～')
+// 不批改、直接保存答案（后端持久化 + 会话级「上次答题」缓存）
+async function saveAnswerOnly() {
+  if (!canSubmit.value || !fsQuestion.value) return
+  const fd = new FormData()
+  fd.append('file', uploadedAnswerFile.value)
+  try {
+    const res = await http.post(`/student/questions/${fsQuestion.value.id}/answer`, fd)
+    // 用后端返回的图片 URL（跨刷新持久化），而非本地 blob URL
+    const img = res?.answerImageUrl || uploadedAnswerImg.value
+    savedAnswers.set(fsQuestion.value.id, { image: img, text: res?.answerText || '' })
+    lastAnswerImage.value = img
+    lastAnswerText.value = res?.answerText || ''
+    uploadedAnswerImg.value = ''
+    uploadedAnswerFile.value = null
+    ElMessage.success('答案已保存（未批改）')
+  } catch (e) {
+    // 401/403/404/500 已由拦截器统一提示，不重复处理
+  }
+}
+
+// 删除当前题的「上次答题」
+function deleteLastAnswer() {
+  if (!fsQuestion.value) return
+  savedAnswers.delete(fsQuestion.value.id)
+  lastAnswerImage.value = ''
+  lastAnswerText.value = ''
+  lastAnswerHtml.value = ''
+  // 后端删除（尚未实现 DELETE 接口，当前仅本会话生效）
+  http.delete(`/student/questions/${fsQuestion.value.id}/answer`).catch(() => {})
 }
 
 function updateFsMastery() {
@@ -620,7 +654,6 @@ function enterFullscreen() {
   // 重置答题状态
   fsSubmitted.value = false
   fsAiResult.value = ''
-  fsSentToTeacher.value = false
   uploadedAnswerImg.value = ''
   timer = setInterval(() => { seconds++; const m=Math.floor(seconds/60).toString().padStart(2,'0'); const s=(seconds%60).toString().padStart(2,'0'); elapsed.value=`${m}:${s}` }, 1000)
   const pool = filteredQuestions.value
@@ -638,8 +671,8 @@ function selectFsKp(kpName) {
   setFsQuestion(fsPool.value.length ? fsPool.value[0] : null)
 }
 function resetAnswerState() {
-  fsSubmitted.value = false; fsAiResult.value = ''; fsSentToTeacher.value = false
-  uploadedAnswerImg.value = ''; uploadedAnswerFile.value = null; lastAnswerText.value = ''; lastAnswerImage.value = ''; lastAnswerHtml.value = ''
+  fsSubmitted.value = false; fsAiResult.value = ''
+  uploadedAnswerImg.value = ''; uploadedAnswerFile.value = null
 }
 function exitFullscreen() { isFullscreen.value = false; clearInterval(timer); document.removeEventListener('keydown', onKeyDown) }
 function onKeyDown(e) { if (e.key === 'Escape') exitFullscreen() }
@@ -738,6 +771,7 @@ function fsGoNext() {
 .fs-top { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; background: rgba(255,255,255,.75); backdrop-filter: blur(12px); flex-shrink: 0; }
 .fs-timer { font-size: 24px; font-weight: 700; font-family: monospace; color: var(--color-primary); }
 .fs-progress { font-size: 13px; color: #666; white-space: nowrap; }
+.fs-progress-hint { font-size: 12px; color: #999; }
 .fs-progress-bar { flex:1; height:6px; background:#e0e0e0; border-radius:3px; overflow:hidden; max-width:200px; }
 .fs-pb-fill { height:100%; background:var(--color-primary); border-radius:3px; transition:width .3s; display:block; }
 .fs-top-right { display: flex; gap: 8px; align-items: center; }
@@ -799,6 +833,9 @@ function fsGoNext() {
 .fs-answer { background: rgba(255,255,255,.8); border-radius: 16px; padding: 16px 20px; flex-shrink: 0; }
 .fs-last-answer { background: rgba(255,255,255,.8); border-radius: 16px; padding: 16px 20px; flex-shrink: 0; margin-top: 8px; }
 .fs-last-answer .text-box { background:#F8FAFC; padding:10px; border-radius:8px; font-size:13px; line-height:1.6; }
+.fsa-img-wrap { position: relative; display: inline-block; margin-top: 4px; }
+.fsa-img-del { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; line-height: 22px; border: none; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font-size: 14px; cursor: pointer; text-align: center; padding: 0; }
+.fsa-img-del:hover { background: #EF4444; }
 .fsa-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); }
 .fs-answer pre { color: #555; font-size: 14px; line-height: 1.8; white-space: pre-wrap; font-family: monospace; }
 

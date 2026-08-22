@@ -30,7 +30,7 @@
           <el-button v-if="qSelection.length" type="danger" plain @click="batchDelQuestions">🗑 批量删除({{qSelection.length}})</el-button>
         </div>
         <el-table :data="pagedQuestions" stripe size="small" @selection-change="qSelection=$event">
-          <el-table-column type="selection" width="40" :selectable="isOwnQ"/>
+          <el-table-column type="selection" width="40" :selectable="canManageQ"/>
           <el-table-column label="题目" min-width="180" show-overflow-tooltip><template #default="{row}"><span v-html="row._titleHtml || row.title"></span></template></el-table-column>
           <el-table-column label="知识点" width="150"><template #default="{row}"><el-tag v-if="!row.kpNames?.length" size="small" type="warning" effect="plain">待标识</el-tag><el-tag v-for="kp in (row.kpNames||[])" :key="kp" size="small" effect="plain" style="margin:1px">{{ kp }}</el-tag></template></el-table-column>
           <el-table-column label="配图" width="60" align="center"><template #default="{row}"><el-tag :type="row.diagramImageUrl?'success':'info'" size="small">{{ row.diagramImageUrl?'有':'无' }}</el-tag></template></el-table-column>
@@ -40,7 +40,7 @@
           <el-table-column label="难度" width="65" align="center"><template #default="{row}"><el-tag :type="row.difficulty==='EASY'?'success':row.difficulty==='MEDIUM'?'warning':'danger'" size="small">{{ row.difficulty==='EASY'?'简单':row.difficulty==='MEDIUM'?'中等':'困难' }}</el-tag></template></el-table-column>
           <el-table-column label="浏览权限" width="85" align="center"><template #default="{row}"><el-tag :type="row.shared?'success':'info'" size="small">{{ row.shared ? '共享' : '私有' }}</el-tag></template></el-table-column>
           <el-table-column label="日期" width="90" align="center" prop="createdAt"/>
-          <el-table-column label="操作" width="130" align="center"><template #default="{row}"><el-button size="small" text type="primary" @click="viewQuestion(row)">详情</el-button><el-button v-if="isOwnQ(row)" size="small" text type="danger" @click="delQuestion(row)">删除</el-button></template></el-table-column>
+          <el-table-column label="操作" width="130" align="center"><template #default="{row}"><el-button size="small" text type="primary" @click="viewQuestion(row)">详情</el-button><el-button v-if="canManageQ(row)" size="small" text type="danger" @click="delQuestion(row)">删除</el-button></template></el-table-column>
         </el-table>
         <div class="mt-lg" style="text-align:right"><el-pagination v-model:current-page="qPage" :page-size="15" :total="filteredQuestions.length" layout="total, prev, pager, next" background/></div>
       </el-tab-pane>
@@ -241,7 +241,7 @@
     </el-dialog>
 
     <el-dialog v-model="showQDetail" title="题目详情" width="820px">
-      <div v-if="currentQ" class="q-detail"><el-row :gutter="20"><el-col :span="12"><h4>📷 原上传图片</h4><div class="img-box"><img v-if="currentQ.originalImageUrl" :src="imgUrl(currentQ.originalImageUrl)" class="detail-img"/><el-empty v-else description="无原图" :image-size="80"/></div><h4 class="mt-lg">🖼 配图</h4><div class="img-box"><img v-if="currentQ.diagramImageUrl" :src="imgUrl(currentQ.diagramImageUrl)" class="detail-img"/><el-empty v-else description="无配图" :image-size="60"/></div><div class="mt-sm" v-if="qIsOwner"><el-upload action="#" :auto-upload="false" :show-file-list="false" accept="image/*" @change="uploadDiagram"><el-button size="small">📁 上传配图</el-button></el-upload></div></el-col><el-col :span="12"><h4>📝 AI 识别</h4><div v-if="!qIsOwner" class="text-box" v-html="currentQ._titleHtml || currentQ.title"></div><template v-else><div v-if="!currentQ._titleEditing"><div class="text-box" v-html="currentQ._titleHtml || currentQ.title"></div><el-button size="small" text type="primary" @click="currentQ._titleEditing=true">✏️ 编辑</el-button></div><div v-else><el-input v-model="currentQ.title" type="textarea" :rows="4" placeholder="编辑题目内容..."/><div style="margin-top:4px"><el-button size="small" type="primary" @click="confirmTitleEdit">✅ 确认</el-button></div></div></template><h4 class="mt-lg">🏷 知识点</h4><el-select v-model="currentQ.kpIds" multiple placeholder="选择" style="width:100%" :disabled="!qIsOwner"><el-option v-for="k in kps" :key="k.id" :label="k.name" :value="k.id"/></el-select><h4 class="mt-lg">📊 难度</h4><el-select v-model="currentQ.difficulty" style="width:100%" :disabled="!qIsOwner"><el-option label="简单" value="EASY"/><el-option label="中等" value="MEDIUM"/><el-option label="困难" value="HARD"/></el-select><h4 class="mt-lg">👨‍🏫 老师解析</h4><div v-if="!qIsOwner" class="text-box" v-html="currentQ._taPreview || '暂无解析'"></div><template v-else><div v-if="!currentQ._taEditing" style="margin-bottom:8px"><div class="text-box" v-html="currentQ._taPreview || '暂无解析'"></div><el-button size="small" text type="primary" @click="currentQ._taEditing=true">✏️ 编辑</el-button></div><div v-else><el-input v-model="currentQ.teacherAnalysis" type="textarea" :rows="4" placeholder="输入文字解析...（可直接粘贴图片）" @paste="onTeacherPaste"/><div style="margin-top:4px"><el-button size="small" type="primary" @click="previewTeacherAnalysis(); currentQ._taEditing=false">✅ 确认</el-button></div></div></template><div v-if="qIsOwner" style="margin-top:16px"><span style="font-size:14px;font-weight:600">🌐 共享</span><el-radio-group v-model="currentQ.shared" style="margin-left:8px"><el-radio :value="true">共享</el-radio><el-radio :value="false">私有</el-radio></el-radio-group></div><h4 class="mt-lg" v-if="currentQ.solution">📝 AI解答</h4><div class="text-box" v-if="currentQ.solution" v-html="currentQ._solutionHtml || currentQ.solution"></div><el-button v-if="qIsOwner" type="primary" size="small" class="mt-lg" @click="saveQDetail">保存修改</el-button></el-col></el-row></div>
+      <div v-if="currentQ" class="q-detail"><el-row :gutter="20"><el-col :span="12"><h4>📷 原上传图片</h4><div class="img-box"><img v-if="currentQ.originalImageUrl" :src="imgUrl(currentQ.originalImageUrl)" class="detail-img"/><el-empty v-else description="无原图" :image-size="80"/></div><h4 class="mt-lg">🖼 配图</h4><div class="img-box"><img v-if="currentQ.diagramImageUrl" :src="imgUrl(currentQ.diagramImageUrl)" class="detail-img"/><el-empty v-else description="无配图" :image-size="60"/></div><div class="mt-sm" v-if="qIsOwner"><el-upload action="#" :auto-upload="false" :show-file-list="false" accept="image/*" @change="uploadDiagram"><el-button size="small">📁 上传配图</el-button></el-upload></div></el-col><el-col :span="12"><h4>📝 AI 识别</h4><div v-if="!qIsOwner" class="text-box" v-html="currentQ._titleHtml || currentQ.title"></div><template v-else><div v-if="!currentQ._titleEditing"><div class="text-box" v-html="currentQ._titleHtml || currentQ.title"></div><el-button size="small" text type="primary" @click="currentQ._titleEditing=true">✏️ 编辑</el-button></div><div v-else><el-input v-model="currentQ.title" type="textarea" :rows="4" placeholder="编辑题目内容..."/><div style="margin-top:4px"><el-button size="small" type="primary" @click="confirmTitleEdit">✅ 确认</el-button></div></div></template><h4 class="mt-lg">🏷 知识点</h4><el-select v-model="currentQ.kpIds" multiple placeholder="选择" style="width:100%" :disabled="!qIsOwner"><el-option v-for="k in kps" :key="k.id" :label="k.name" :value="k.id"/></el-select><h4 class="mt-lg">📊 难度</h4><el-select v-model="currentQ.difficulty" style="width:100%" :disabled="!qIsOwner"><el-option label="简单" value="EASY"/><el-option label="中等" value="MEDIUM"/><el-option label="困难" value="HARD"/></el-select><h4 class="mt-lg">👨‍🏫 老师解析</h4><div v-if="!qIsOwner" class="text-box" v-html="currentQ._taPreview || '暂无解析'"></div><template v-else><div v-if="!currentQ._taEditing" style="margin-bottom:8px"><div class="text-box" v-html="currentQ._taPreview || '暂无解析'"></div><el-button size="small" text type="primary" @click="currentQ._taEditing=true">✏️ 编辑</el-button></div><div v-else><el-input v-model="currentQ.teacherAnalysis" type="textarea" :rows="4" placeholder="输入文字解析...（可直接粘贴图片）" @paste="onTeacherPaste"/><div style="margin-top:4px"><el-button size="small" type="primary" @click="previewTeacherAnalysis(); currentQ._taEditing=false">✅ 确认</el-button></div></div></template><div v-if="qIsOwner && currentQ.source !== 'STUDENT'" style="margin-top:16px"><span style="font-size:14px;font-weight:600">🌐 共享</span><el-radio-group v-model="currentQ.shared" style="margin-left:8px"><el-radio :value="true">共享</el-radio><el-radio :value="false">私有</el-radio></el-radio-group></div><h4 class="mt-lg" v-if="currentQ.solution">📝 AI解答</h4><div class="text-box" v-if="currentQ.solution" v-html="currentQ._solutionHtml || currentQ.solution"></div><el-button v-if="qIsOwner" type="primary" size="small" class="mt-lg" @click="saveQDetail">保存修改</el-button></el-col></el-row></div>
     </el-dialog>
 
     <el-dialog v-model="showCrop" title="✂️ 截图配图" width="820px" :close-on-click-modal="false" destroy-on-close>
@@ -298,9 +298,16 @@ function isOwnKp(row) {
   return String(row.teacherId).padStart(8, '0') === myUid.value
 }
 function isOwnQ(q) {
-  // QuestionVO.teacherId = users.id（Long），与 UserVO.id 直接对齐，非零填充 uid
+  // QuestionVO.teacherId = users.id（数字 Long），与 auth.user.id 对齐；
+  // 注意不是 uid（8 位零填充字符串）。用 String 比较，兼容 Long 序列化为数字/字符串两种形态
   if (!q || q.teacherId == null) return false
   return String(q.teacherId) === String(auth.user?.id ?? '')
+}
+function canManageQ(q) {
+  // 学生来源的错题（source=STUDENT）：绑定老师可编辑/删除
+  // /teacher/questions 已按绑定关系过滤，能出现在列表里的学生错题即已绑定
+  if (q?.source === 'STUDENT') return true
+  return isOwnQ(q)
 }
 
 const tab = ref('kp')
@@ -518,7 +525,7 @@ function fileToBase64(input) {
     else { resolve(input) }
   })
 }
-onMounted(async () => { loadKpResources(); loadKps(); loadQuestions(); loadExams(); loadHw(); try { const r = await getTeacherMathStudents(); studentList.value = r || [] } catch {} })
+onMounted(async () => { loadKpResources(); loadKps(); loadQuestions(); loadExams(); loadHw(); try { const r = await getTeacherMathStudents(); studentList.value = Array.isArray(r) ? r : (r?.data ?? []) } catch {} })
 const filteredKps=computed(()=>kps.value.filter(k=>!kpGradeFilter.value||k.gradeLevel===kpGradeFilter.value))
 const pagedKps=computed(()=>{const s=(kpPage.value-1)*15;return filteredKps.value.slice(s,s+15)})
 function openKpForm(row){ editingKp.value=row||null; kpForm.name=row?.name||''; kpForm.gradeLevel=row?.gradeLevel||''; showKpForm.value=true }
@@ -531,7 +538,7 @@ async function batchDelKps(){ if(!kpSelection.value.length)return; await ElMessa
 
 const qSearch=ref(''); const qKpFilter=ref(null); const qGradeFilter=ref(''); const qTypeFilter=ref(''); const qQuestionType=ref(''); const qStudentFilter=ref(null); const qSharedFilter=ref(null); const qDateFilter=ref(''); const qPage=ref(1)
 const showQDetail=ref(false); const currentQ=ref(null)
-const qIsOwner=computed(()=>isOwnQ(currentQ.value))
+const qIsOwner=computed(()=>canManageQ(currentQ.value))
 const filteredKpsForGrade = computed(() => qGradeFilter.value ? kps.value.filter(k => k.gradeLevel === qGradeFilter.value) : kps.value)
 const studentList=ref([])
 const questions=ref([
@@ -555,7 +562,7 @@ const pagedQuestions=computed(()=>{
   const start=(qPage.value-1)*15; return filteredQuestions.value.slice(start,start+15)
 })
 async function viewQuestion(q){
-  currentQ.value={...q, kpIds:(q.knowledgePointIds||'').split(',').filter(Boolean).map(Number), shared:q.shared ?? true, _taEditing:false, _titleEditing:false}
+  currentQ.value={...q, kpIds:(q.knowledgePointIds||'').split(',').filter(Boolean).map(Number), shared:(q.source==='STUDENT'?false:(q.shared ?? true)), _taEditing:false, _titleEditing:false}
   if (q.title) currentQ.value._titleHtml = await renderMarkdown(q.title)
   if (q.solution) currentQ.value._solutionHtml = await renderMarkdown(q.solution)
   // 如果老师解析为空，用 solution 兜底

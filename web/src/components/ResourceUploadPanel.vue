@@ -111,6 +111,7 @@
           <el-radio-group v-model="price">
             <el-radio-button v-for="t in priceTiers" :key="t.price" :value="t.price">{{ t.label }} {{ t.price }}</el-radio-button>
           </el-radio-group>
+          <span class="rup-price-tip">资源点收入的 50% 将计入你的个人账户</span>
         </template>
       </div>
 
@@ -388,6 +389,7 @@ onMounted(loadTextbooks)
 .rup-label { width: 48px; font-size: 13px; color: var(--text-secondary); flex-shrink: 0 }
 
 .rup-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px }
+.rup-price-tip { font-size: 12px; color: var(--text-muted); }
 .rup-upload :deep(.el-upload-dragger) { padding: 28px 0 }
 .rup-submit { margin-top: 14px }
 </style>
