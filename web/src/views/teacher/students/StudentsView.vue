@@ -75,10 +75,11 @@
         <el-table-column prop="grade" label="年级" width="75" align="center" />
         <el-table-column prop="school" label="学校" min-width="130" show-overflow-tooltip />
         <el-table-column prop="regDate" label="报名时间" width="110" align="center" />
-        <el-table-column label="操作" width="110" fixed="right" align="center">
+        <el-table-column label="操作" width="180" fixed="right" align="center">
           <template #default="{row,$index}">
             <el-button size="small" text type="primary" @click="editStudent(row,$index)">编辑</el-button>
             <el-button size="small" text type="warning" @click="clearEnrollments(row)">清空排课</el-button>
+            <el-button size="small" text type="info" @click="openWrongQuestions(row)">错题</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -216,6 +217,36 @@
       </el-form>
       <template #footer><el-button @click="showReschedule=false">取消</el-button><el-button type="primary" @click="confirmReschedule">确认</el-button></template>
     </el-dialog>
+
+    <!-- 学生错题查看弹窗 -->
+    <el-dialog v-model="wrongDialogVisible" :title="`📖 ${wrongStudent?.name || ''} 的错题`" width="880px" destroy-on-close>
+      <div class="mb-lg" style="display:flex;gap:10px;align-items:center">
+        <el-select v-model="wrongSubject" placeholder="科目筛选" clearable style="width:140px" @change="onWrongSubjectChange">
+          <el-option v-for="s in subjectList" :key="s" :label="s" :value="s" />
+        </el-select>
+        <span v-if="!wrongLoading && !wrongError" style="font-size:12px;color:var(--text-muted)">共 {{ wrongTotal }} 题</span>
+      </div>
+
+      <el-table :data="wrongQuestions" stripe size="small" v-loading="wrongLoading">
+        <el-table-column type="index" label="#" width="50" align="center" />
+        <el-table-column prop="title" label="题目" min-width="240" show-overflow-tooltip />
+        <el-table-column label="知识点" min-width="140">
+          <template #default="{row}">
+            <span style="font-size:12px;color:var(--text-secondary)">{{ formatKps(row.knowledgePointNames) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="难度" width="80" align="center">
+          <template #default="{row}"><el-tag :type="diffTag(row.difficulty)" size="small">{{ diffLabel(row.difficulty) }}</el-tag></template>
+        </el-table-column>
+        <el-table-column prop="gradeLevel" label="年级" width="110" align="center" />
+      </el-table>
+
+      <el-empty v-if="!wrongLoading && !wrongQuestions.length" :description="wrongError ? '无权查看或查询失败' : '暂无错题'" :image-size="80" />
+
+      <div class="mt-lg" style="text-align:right" v-if="wrongTotal > wrongPageSize">
+        <el-pagination v-model:current-page="wrongPage" :total="wrongTotal" :page-size="wrongPageSize" layout="total, prev, pager, next" @current-change="loadWrongQuestions" />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -224,6 +255,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { Search, Plus, ArrowLeft, ArrowRight, Check, Calendar, Bell } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getStudents, createStudent, updateStudent, adjustHours as apiAdjustHours } from '@/api/common/students'
+import { getTeacherStudentWrongQuestions } from '@/api/common/questions'
 
 // === 调课申请管理 ===
 const allRequests = ref([])
@@ -453,6 +485,55 @@ async function clearEnrollments(row) {
     ElMessage.success('排课已清空，学生仍保留')
     await loadStudents()
   } catch (e) { ElMessage.error(e.message || '清空失败') }
+}
+
+// ===== 学生错题查看 =====
+const wrongDialogVisible = ref(false)
+const wrongStudent = ref(null)
+const wrongLoading = ref(false)
+const wrongQuestions = ref([])
+const wrongTotal = ref(0)
+const wrongPage = ref(1)
+const wrongPageSize = ref(15)
+const wrongSubject = ref('')
+const wrongError = ref(false)
+
+function diffLabel(d) { return { EASY: '简单', MEDIUM: '中等', HARD: '困难' }[d] || d || '—' }
+function diffTag(d) { return { EASY: 'success', MEDIUM: 'warning', HARD: 'danger' }[d] || 'info' }
+// knowledgePointNames 是 CSV 中文名（"有理数运算,一元一次方程"），null 时显示 —
+function formatKps(v) { return v ? String(v).replace(/,/g, '、') : '—' }
+
+function openWrongQuestions(row) {
+  wrongStudent.value = row
+  wrongPage.value = 1
+  wrongSubject.value = ''
+  wrongError.value = false
+  wrongDialogVisible.value = true
+  loadWrongQuestions()
+}
+function onWrongSubjectChange() { wrongPage.value = 1; loadWrongQuestions() }
+
+async function loadWrongQuestions() {
+  if (!wrongStudent.value) return
+  wrongLoading.value = true
+  wrongError.value = false
+  try {
+    const res = await getTeacherStudentWrongQuestions(wrongStudent.value.id, {
+      subject: wrongSubject.value || undefined,
+      page: wrongPage.value,
+      pageSize: wrongPageSize.value
+    })
+    wrongQuestions.value = res.list || []
+    wrongTotal.value = res.total || 0
+  } catch (e) {
+    // 拦截器已弹错（403 未绑定 / 404 不存在等）；这里标记错误态，
+    // 避免把"无权查看"渲染成"暂无错题"误导用户
+    wrongQuestions.value = []
+    wrongTotal.value = 0
+    wrongError.value = true
+  } finally {
+    wrongLoading.value = false
+  }
 }
 
 // ===== 主日历 =====
