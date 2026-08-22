@@ -143,26 +143,37 @@ function tick(now) {
 
 watch(() => props.theme, () => { items = [] })
 
-function onVisibility() {
-  // 页面隐藏/最小化时暂停动画，避免 GPU 空转并在最小化瞬间触发闪烁
-  if (document.hidden) {
-    cancelAnimationFrame(raf)
-    raf = null
-  } else if (!raf) {
+function pause() {
+  cancelAnimationFrame(raf)
+  raf = null
+}
+function resume() {
+  if (!raf) {
+    resize()
     raf = requestAnimationFrame(tick)
   }
+}
+// 页面隐藏/最小化/失焦时暂停动画：visibilitychange 在 Windows 最小化时可能不触发，
+// 用 blur/focus（失焦/获焦）作为更可靠的信号，避免 GPU 空转并在最小化瞬间闪烁还原
+function onVisibility() {
+  if (document.hidden) pause()
+  else resume()
 }
 
 onMounted(() => {
   resize()
   window.addEventListener('resize', resize)
   document.addEventListener('visibilitychange', onVisibility)
+  window.addEventListener('blur', pause)
+  window.addEventListener('focus', resume)
   raf = requestAnimationFrame(tick)
 })
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf)
   window.removeEventListener('resize', resize)
   document.removeEventListener('visibilitychange', onVisibility)
+  window.removeEventListener('blur', pause)
+  window.removeEventListener('focus', resume)
 })
 </script>
 
