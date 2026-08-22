@@ -25,22 +25,30 @@
       <!-- 教材（版本） -->
       <div class="rup-level">
         <span class="rup-label">教材</span>
-        <el-select v-model="version" placeholder="选择教材" style="width: 300px" @change="onVersionChange" filterable>
-          <el-option v-for="v in versionOptions" :key="v.value" :label="v.label" :value="v.value" />
-        </el-select>
-      </div>
-
-      <!-- 年级 -->
-      <div class="rup-level" v-if="version">
-        <span class="rup-label">年级</span>
-        <template v-if="!addingTextbook">
-          <el-select v-model="textbookId" placeholder="选择年级" style="width: 300px" @change="onTextbookChange" filterable>
-            <el-option v-for="g in gradeOptions" :key="g.id" :label="g.label" :value="g.id" />
+        <template v-if="!addingVersion">
+          <el-select v-model="version" placeholder="选择教材" style="width: 300px" @change="onVersionChange" filterable>
+            <el-option v-for="v in versionOptions" :key="v.value" :label="v.label" :value="v.value" />
           </el-select>
-          <el-button v-if="allowAdd" size="small" @click="startAdd('textbook')">＋ 新增教材</el-button>
+          <el-button v-if="allowAdd" size="small" @click="startAdd('version')">＋ 新增教材</el-button>
         </template>
         <template v-else>
-          <el-input v-model="newTextbookName" placeholder="教材名，如：七年级上册" style="width: 300px" @keyup.enter="confirmAddTextbook" />
+          <el-input v-model="newVersionName" placeholder="教材版本，如：沪科版" style="width: 300px" @keyup.enter="confirmAddVersion" />
+          <el-button size="small" type="primary" :loading="saving" @click="confirmAddVersion">确定</el-button>
+          <el-button size="small" @click="cancelAdd('version')">取消</el-button>
+        </template>
+      </div>
+
+      <!-- 学期年级 -->
+      <div class="rup-level" v-if="version">
+        <span class="rup-label">学期年级</span>
+        <template v-if="!addingTextbook">
+          <el-select v-model="textbookId" placeholder="选择学期年级" style="width: 300px" @change="onTextbookChange" filterable>
+            <el-option v-for="g in gradeOptions" :key="g.id" :label="g.label" :value="g.id" />
+          </el-select>
+          <el-button v-if="allowAdd" size="small" @click="startAdd('textbook')">＋ 新增学期年级</el-button>
+        </template>
+        <template v-else>
+          <el-input v-model="newTextbookName" placeholder="学期年级，如：七年级上册" style="width: 300px" @keyup.enter="confirmAddTextbook" />
           <el-button size="small" type="primary" :loading="saving" @click="confirmAddTextbook">确定</el-button>
           <el-button size="small" @click="cancelAdd('textbook')">取消</el-button>
         </template>
@@ -215,12 +223,15 @@ const textbookId = ref('') // 年级选择后对应的教材 id
 const chapterId = ref('')
 const sectionId = ref('')
 
+const addingVersion = ref(false)
 const addingTextbook = ref(false)
 const addingChapter = ref(false)
 const addingSection = ref(false)
+const newVersionName = ref('')
 const newTextbookName = ref('')
 const newChapterName = ref('')
 const newSectionName = ref('')
+const customVersions = ref([])
 const saving = ref(false)
 
 const resType = ref('课件')
@@ -232,7 +243,7 @@ const uploading = ref(false)
 const resList = ref([])
 
 const versionOptions = computed(() => {
-  const keys = [...new Set(textbooks.value.map(t => t.version).filter(Boolean))]
+  const keys = [...new Set([...textbooks.value.map(t => t.version).filter(Boolean), ...customVersions.value])]
   return keys.map(k => ({ value: k, label: versionMap[k] || k }))
 })
 const gradeOptions = computed(() => {
@@ -277,7 +288,7 @@ function resetAll() {
   sections.value = []
   resList.value = []
   fileList.value = []
-  cancelAdd('textbook'); cancelAdd('chapter'); cancelAdd('section')
+  cancelAdd('version'); cancelAdd('textbook'); cancelAdd('chapter'); cancelAdd('section')
 }
 function onSubjectChange() { resetAll(); loadTextbooks() }
 function onStageChange() { resetAll(); loadTextbooks() }
@@ -302,19 +313,31 @@ function onChapterChange() { sectionId.value = ''; resList.value = []; loadSecti
 function onSectionChange() { loadResList() }
 
 function startAdd(level) {
+  if (level === 'version') { addingVersion.value = true; newVersionName.value = '' }
   if (level === 'textbook') { addingTextbook.value = true; newTextbookName.value = '' }
   if (level === 'chapter') { addingChapter.value = true; newChapterName.value = '' }
   if (level === 'section') { addingSection.value = true; newSectionName.value = '' }
 }
 function cancelAdd(level) {
+  if (level === 'version') addingVersion.value = false
   if (level === 'textbook') addingTextbook.value = false
   if (level === 'chapter') addingChapter.value = false
   if (level === 'section') addingSection.value = false
 }
 
+function confirmAddVersion() {
+  const name = newVersionName.value.trim()
+  if (!name) return ElMessage.warning('请输入教材版本')
+  if (!customVersions.value.includes(name)) customVersions.value.push(name)
+  version.value = name
+  textbookId.value = ''; chapterId.value = ''; sectionId.value = ''
+  chapters.value = []; sections.value = []; resList.value = []; fileList.value = []
+  addingVersion.value = false
+  ElMessage.success('教材已新增')
+}
 async function confirmAddTextbook() {
   const name = newTextbookName.value.trim()
-  if (!name) return ElMessage.warning('请输入教材名')
+  if (!name) return ElMessage.warning('请输入学期年级')
   if (!version.value) return ElMessage.warning('请先选择教材版本')
   saving.value = true
   try {
@@ -323,7 +346,7 @@ async function confirmAddTextbook() {
     textbookId.value = t.id
     chapterId.value = ''; sectionId.value = ''; resList.value = []
     addingTextbook.value = false
-    ElMessage.success('教材已新增')
+    ElMessage.success('学期年级已新增')
   } catch (e) { ElMessage.error(e.message || '新增失败') } finally { saving.value = false }
 }
 async function confirmAddChapter() {
