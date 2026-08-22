@@ -9,7 +9,7 @@
           <el-option label="小学" value="primary"/><el-option label="初中" value="junior"/><el-option label="高中" value="senior"/>
         </el-select>
         <el-select v-model="version" size="small" style="width:100%;margin-bottom:10px">
-          <el-option label="苏科版" value="suke"/><el-option label="人教版" value="renjiao"/><el-option label="北师大版" value="bsd"/><el-option label="浙教版" value="zj"/><el-option label="沪科版" value="hk"/>
+          <el-option v-for="v in versionOptions" :key="v.value" :label="v.label" :value="v.value"/>
         </el-select>
         <div class="rs-tree-title">📂 教材目录</div>
         <el-tree
@@ -85,7 +85,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/store/auth'
@@ -100,8 +100,18 @@ const isTeacher = computed(() => route.path.startsWith('/teacher'))
 const subjectHome = computed(() => isTeacher.value ? `/teacher/subject/${subject.value}` : `/student/subject/${subject.value}`)
 
 const stage = ref('junior')
-const version = ref('suke')
+const version = ref('') // 默认选第一个教材版本
 const treeKey = computed(() => `${subject.value}-${stage.value}-${version.value}`)
+const versionMap = { suke: '苏科版', renjiao: '人教版', bsd: '北师大版', zj: '浙教版', hk: '沪科版' }
+const versionOptions = ref([])
+async function loadVersions() {
+  const list = await listTextbooks(subject.value)
+  const keys = [...new Set((list || []).map(t => t.version).filter(Boolean))]
+  versionOptions.value = keys.map(k => ({ value: k, label: versionMap[k] || k }))
+  version.value = keys[0] || '' // 默认第一个教材版本
+}
+onMounted(loadVersions)
+watch(subject, loadVersions)
 
 const filterType = ref('')
 const filterYear = ref('')

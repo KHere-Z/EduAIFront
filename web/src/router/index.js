@@ -108,4 +108,16 @@ router.beforeEach((to, from, next) => {
   }
 })
 
+// 懒加载 chunk 404 兜底：部署后浏览器可能缓存旧 index.html（引用旧 chunk 哈希），
+// 会话中导航触发动态 import 失败。这里强制整页刷新一次，重新拉取最新 index.html 与 chunk。
+router.onError((error) => {
+  const msg = error?.message || ''
+  const isChunkError = /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed/i.test(msg)
+  if (!isChunkError) return
+  const last = Number(sessionStorage.getItem('__chunk_reload_ts') || 0)
+  if (Date.now() - last < 5000) return // 5 秒内只刷新一次，避免死循环
+  sessionStorage.setItem('__chunk_reload_ts', String(Date.now()))
+  window.location.reload()
+})
+
 export default router

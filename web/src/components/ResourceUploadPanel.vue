@@ -30,6 +30,7 @@
             <el-option v-for="v in versionOptions" :key="v.value" :label="v.label" :value="v.value" />
           </el-select>
           <el-button v-if="allowAdd" size="small" @click="startAdd('version')">＋ 新增教材</el-button>
+          <el-button v-if="allowAdd" size="small" @click="openManage('version')">管理</el-button>
         </template>
         <template v-else>
           <el-input v-model="newVersionName" placeholder="教材版本，如：沪科版" style="width: 300px" @keyup.enter="confirmAddVersion" />
@@ -46,6 +47,7 @@
             <el-option v-for="g in gradeOptions" :key="g.id" :label="g.label" :value="g.id" />
           </el-select>
           <el-button v-if="allowAdd" size="small" @click="startAdd('textbook')">＋ 新增学期年级</el-button>
+          <el-button v-if="allowAdd" size="small" @click="openManage('textbook')">管理</el-button>
         </template>
         <template v-else>
           <el-input v-model="newTextbookName" placeholder="学期年级，如：七年级上册" style="width: 300px" @keyup.enter="confirmAddTextbook" />
@@ -62,6 +64,7 @@
             <el-option v-for="c in chapters" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
           <el-button v-if="allowAdd" size="small" @click="startAdd('chapter')">＋ 新增章节</el-button>
+          <el-button v-if="allowAdd" size="small" @click="openManage('chapter')">管理</el-button>
         </template>
         <template v-else>
           <el-input v-model="newChapterName" placeholder="章节名，如：第1章 有理数" style="width: 300px" @keyup.enter="confirmAddChapter" />
@@ -78,6 +81,7 @@
             <el-option v-for="s in sections" :key="s.id" :label="s.name" :value="s.id" />
           </el-select>
           <el-button v-if="allowAdd" size="small" @click="startAdd('section')">＋ 新增小节</el-button>
+          <el-button v-if="allowAdd" size="small" @click="openManage('section')">管理</el-button>
         </template>
         <template v-else>
           <el-input v-model="newSectionName" placeholder="小节名，如：1.1 正数和负数" style="width: 300px" @keyup.enter="confirmAddSection" />
@@ -177,13 +181,46 @@
       </el-table>
       <el-empty v-else description="暂无资源" :image-size="60" />
     </el-card>
+
+    <!-- 管理：编辑 / 拖动排序 / 删除 -->
+    <el-dialog v-model="manageVisible" :title="manageTitle" width="520px">
+      <div class="rup-manage-hint">拖动左侧 ⋮⋮ 调整顺序，点「编辑」改名，「删除」移除</div>
+      <div v-if="manageList.length" class="rup-manage-list">
+        <div
+          v-for="it in manageList"
+          :key="it.key"
+          class="rup-manage-item"
+          :class="{ 'is-dragover': dragOverKey === it.key, 'is-editing': editKey === it.key }"
+          :draggable="editKey !== it.key"
+          @dragstart="onDragStart(it)"
+          @dragover.prevent="onDragOver(it)"
+          @dragleave="onDragLeave"
+          @drop.prevent="onDrop(it)"
+        >
+          <span class="rup-manage-drag" title="拖动排序">⋮⋮</span>
+          <el-input v-if="editKey === it.key" v-model="editName" size="small" class="rup-manage-input" @keyup.enter="saveEdit(it)" />
+          <span v-else class="rup-manage-label">{{ it.label }}</span>
+          <div class="rup-manage-actions">
+            <template v-if="editKey === it.key">
+              <el-button link type="primary" size="small" @click="saveEdit(it)">保存</el-button>
+              <el-button link size="small" @click="cancelEdit">取消</el-button>
+            </template>
+            <template v-else>
+              <el-button link type="primary" size="small" @click="startEdit(it)">编辑</el-button>
+              <el-button link type="danger" size="small" @click="removeManageItem(it)">删除</el-button>
+            </template>
+          </div>
+        </div>
+      </div>
+      <el-empty v-else description="暂无数据" :image-size="60" />
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { listTextbooks, createTextbook, listChapters, createChapter, listSections, createSection, listResources, addResources, removeResource } from '@/utils/resourceService'
+import { listTextbooks, createTextbook, updateTextbook, removeTextbook, reorderTextbooks, listChapters, createChapter, updateChapter, removeChapter, reorderChapters, listSections, createSection, updateSection, removeSection, reorderSections, listResources, addResources, removeResource } from '@/utils/resourceService'
 
 const props = defineProps({
   subject: { type: String, default: 'math' },
@@ -241,6 +278,128 @@ const price = ref(props.priceMode === 'fixed' ? props.fixedPrice : 100)
 const fileList = ref([])
 const uploading = ref(false)
 const resList = ref([])
+
+// —— 管理（编辑 / 拖动排序 / 删除）——
+const manageVisible = ref(false)
+const manageLevel = ref('') // 'version' | 'textbook' | 'chapter' | 'section'
+const manageList = ref([])
+const editKey = ref('')
+const editName = ref('')
+const dragKey = ref('')
+const dragOverKey = ref('')
+const manageTitle = computed(() => ({ version: '管理教材版本', textbook: '管理学期年级', chapter: '管理章节', section: '管理小节' }[manageLevel.value] || '管理'))
+
+function buildManageList(level) {
+  if (level === 'version') {
+    const keys = [...new Set([...textbooks.value.map(t => t.version).filter(Boolean), ...customVersions.value])]
+    return keys.map(k => ({ key: k, label: versionMap[k] || k }))
+  }
+  if (level === 'textbook') return gradeOptions.value.map(g => ({ key: g.id, label: g.label }))
+  if (level === 'chapter') return chapters.value.map(c => ({ key: c.id, label: c.name }))
+  if (level === 'section') return sections.value.map(s => ({ key: s.id, label: s.name }))
+  return []
+}
+function openManage(level) {
+  manageLevel.value = level
+  manageList.value = buildManageList(level)
+  editKey.value = ''; editName.value = ''
+  manageVisible.value = true
+}
+
+// 编辑（改名）
+function startEdit(it) { editKey.value = it.key; editName.value = it.label }
+function cancelEdit() { editKey.value = ''; editName.value = '' }
+async function saveEdit(it) {
+  const name = editName.value.trim()
+  if (!name) return ElMessage.warning('名称不能为空')
+  if (name === it.label) { cancelEdit(); return }
+  try {
+    await updateManageItem(it, name)
+    it.label = name
+    cancelEdit()
+    ElMessage.success('已更新')
+    await refreshAfterManage()
+  } catch (e) { ElMessage.error(e.message || '更新失败') }
+}
+async function updateManageItem(it, name) {
+  const lv = manageLevel.value
+  if (lv === 'version') {
+    for (const t of textbooks.value.filter(t => t.version === it.key)) await updateTextbook(t.id, { version: name })
+    const i = customVersions.value.indexOf(it.key)
+    if (i >= 0) customVersions.value[i] = name
+    if (version.value === it.key) version.value = name
+    return
+  }
+  if (lv === 'textbook') return updateTextbook(it.key, { name })
+  if (lv === 'chapter') return updateChapter(it.key, { name })
+  if (lv === 'section') return updateSection(it.key, { name })
+}
+
+// 拖动排序
+function onDragStart(it) { dragKey.value = it.key }
+function onDragOver(it) { dragOverKey.value = it.key }
+function onDragLeave() { dragOverKey.value = '' }
+async function onDrop(it) {
+  dragOverKey.value = ''
+  const list = manageList.value
+  const from = list.findIndex(x => x.key === dragKey.value)
+  const to = list.findIndex(x => x.key === it.key)
+  dragKey.value = ''
+  if (from < 0 || to < 0 || from === to) return
+  const [moved] = list.splice(from, 1)
+  list.splice(to, 0, moved)
+  await persistOrder()
+}
+async function persistOrder() {
+  const lv = manageLevel.value
+  const ids = manageList.value.map(x => x.key)
+  if (lv === 'version') {
+    // 教材版本无独立实体，仅调整下拉顺序（会话内有效）
+    customVersions.value = ids.filter(k => customVersions.value.includes(k))
+    ElMessage.success('顺序已调整')
+    return
+  }
+  try {
+    if (lv === 'textbook') await reorderTextbooks(ids)
+    else if (lv === 'chapter') await reorderChapters(ids)
+    else if (lv === 'section') await reorderSections(ids)
+    ElMessage.success('顺序已保存')
+    await refreshAfterManage()
+  } catch (e) { ElMessage.error(e.message || '排序保存失败') }
+}
+
+// 删除
+async function removeManageItem(item) {
+  const lv = manageLevel.value
+  const tip = lv === 'version' ? '（将一并删除其下所有教材、章节、小节与资源）' : '（删除后不可恢复）'
+  try { await ElMessageBox.confirm(`确定删除「${item.label}」？${tip}`, '提示', { type: 'warning' }) } catch { return }
+  try {
+    if (lv === 'version') {
+      for (const t of textbooks.value.filter(t => t.version === item.key)) await removeTextbook(t.id)
+      customVersions.value = customVersions.value.filter(v => v !== item.key)
+      if (version.value === item.key) resetAll()
+    } else if (lv === 'textbook') {
+      await removeTextbook(item.key)
+      if (textbookId.value === item.key) { textbookId.value = ''; chapterId.value = ''; sectionId.value = ''; chapters.value = []; sections.value = []; resList.value = []; fileList.value = [] }
+    } else if (lv === 'chapter') {
+      await removeChapter(item.key)
+      if (chapterId.value === item.key) { chapterId.value = ''; sectionId.value = ''; sections.value = []; resList.value = [] }
+    } else if (lv === 'section') {
+      await removeSection(item.key)
+      if (sectionId.value === item.key) { sectionId.value = ''; resList.value = [] }
+    }
+    manageList.value = manageList.value.filter(x => x.key !== item.key)
+    ElMessage.success('已删除')
+    await refreshAfterManage()
+  } catch (e) { ElMessage.error(e.message || '删除失败') }
+}
+
+async function refreshAfterManage() {
+  const lv = manageLevel.value
+  if (lv === 'version' || lv === 'textbook') await loadTextbooks()
+  else if (lv === 'chapter') await loadChapters()
+  else if (lv === 'section') await loadSections()
+}
 
 const versionOptions = computed(() => {
   const keys = [...new Set([...textbooks.value.map(t => t.version).filter(Boolean), ...customVersions.value])]
@@ -415,4 +574,14 @@ onMounted(loadTextbooks)
 .rup-price-tip { font-size: 12px; color: var(--text-muted); }
 .rup-upload :deep(.el-upload-dragger) { padding: 28px 0 }
 .rup-submit { margin-top: 14px }
+
+.rup-manage-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 8px }
+.rup-manage-list { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow: auto }
+.rup-manage-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--color-border-light); border-radius: 8px; background: var(--color-bg); transition: border-color .15s, background .15s }
+.rup-manage-item.is-dragover { border-color: var(--color-primary); background: var(--color-primary-light) }
+.rup-manage-item.is-editing { background: #fff }
+.rup-manage-drag { cursor: grab; color: var(--text-muted); user-select: none; font-size: 14px; flex-shrink: 0 }
+.rup-manage-input { flex: 1 }
+.rup-manage-label { flex: 1; font-size: 13px; color: var(--text-primary) }
+.rup-manage-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0 }
 </style>

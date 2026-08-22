@@ -42,6 +42,14 @@ export function deleteSection(id) {
   return http.delete(`/resource/sections/${id}`)
 }
 
+// ---- 更新 / 排序 ----
+export function updateTextbook(id, data) { return http.put(`/resource/textbooks/${id}`, data) } // { name?, version?, sortOrder? }
+export function updateChapter(id, data) { return http.put(`/resource/chapters/${id}`, data) } // { name?, sortOrder? }
+export function updateSection(id, data) { return http.put(`/resource/sections/${id}`, data) } // { name?, sortOrder? }
+export function reorderTextbooks(orderedIds) { return http.put('/resource/textbooks/reorder', { orderedIds }) }
+export function reorderChapters(orderedIds) { return http.put('/resource/chapters/reorder', { orderedIds }) }
+export function reorderSections(orderedIds) { return http.put('/resource/sections/reorder', { orderedIds }) }
+
 // ---- 资源 ----
 export function getResources(params) { // { sectionId, subject }
   return http.get('/resource/resources', { params })
