@@ -75,6 +75,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function setToken(t) { token.value = t; if (t && user.value) { const rt = user.value.roleType; sessionStorage.setItem(`eduai_token_${rt}`, t) } }
   function setUser(u) { user.value = u; if (u && token.value) { const rt = u.roleType; sessionStorage.setItem(`eduai_token_${rt}`, token.value); sessionStorage.setItem(`eduai_user_${rt}`, JSON.stringify(u)) } }
+  function setAvatar(url) { if (user.value) { setUser({ ...user.value, avatar: url }) } }
 
   function logout() {
     const rt = user.value?.roleType
@@ -83,5 +84,5 @@ export const useAuthStore = defineStore('auth', () => {
     if (rt) { sessionStorage.removeItem(`eduai_token_${rt}`); sessionStorage.removeItem(`eduai_user_${rt}`) }
   }
 
-  return { token, user, permissions, isLoggedIn, role, isTeacher, isStudent, isAdmin, login, demoLogin, logout, fetchUserInfo, enrichStudentSubjects, setToken, setUser }
+  return { token, user, permissions, isLoggedIn, role, isTeacher, isStudent, isAdmin, login, demoLogin, logout, fetchUserInfo, enrichStudentSubjects, setToken, setUser, setAvatar }
 })

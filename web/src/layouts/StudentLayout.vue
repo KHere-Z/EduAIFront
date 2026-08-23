@@ -12,7 +12,10 @@
       <div class="top-user">
         <span class="top-points" @click="$router.push('/student/recharge')">💰 {{ pointsStore.points }}</span>
         <span class="top-profile" @click="$router.push('/student/profile')" title="个人中心">
-          <span class="tp-avatar" :style="{ background: avatarColor }">{{ userInitial }}</span>
+          <span class="tp-avatar" :style="{ background: avatarColor }">
+            <img v-if="auth.user?.avatar" :src="auth.user.avatar" class="tp-photo" alt="" />
+            <template v-else>{{ userInitial }}</template>
+          </span>
           <span class="tp-name">{{ auth.user?.realName || '同学' }}</span>
           <span class="tp-arrow">▾</span>
         </span>
@@ -103,7 +106,8 @@ function logout() { auth.logout(); router.push('/login') }
 .tt-label { font-weight: 600; }
 .top-profile { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 4px; border-radius: 20px; cursor: pointer; background: #fff; border: 1px solid #e5e7eb; box-shadow: 0 1px 4px rgba(0,0,0,.06); transition: all .2s; margin-right: 4px; }
 .top-profile:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,.18); border-color: var(--color-primary); }
-.tp-avatar { width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.tp-avatar { width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+.tp-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tp-name { font-size: 13px; font-weight: 600; color: #333; max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tp-arrow { font-size: 10px; color: #999; }
 .top-points { display: inline-flex; align-items: center; padding: 2px 12px; border-radius: 12px; font-size: 12px; color: #F59E0B; cursor: pointer; background: rgba(245,158,11,.1); margin-right: 8px; font-weight: 600; transition: all .2s; }
