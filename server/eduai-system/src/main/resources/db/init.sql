@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
   real_name VARCHAR(50) COMMENT '真实姓名',
   phone VARCHAR(20),
   email VARCHAR(100),
+  avatar VARCHAR(255) COMMENT '头像URL',
   role_type TINYINT NOT NULL DEFAULT 3 COMMENT '1=admin 3=teacher 4=student',
   status TINYINT DEFAULT 1 COMMENT '1=正常 0=禁用',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

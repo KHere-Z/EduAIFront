@@ -7,10 +7,11 @@
       <div class="pf-card">
         <div class="pfc-head">基本信息</div>
         <div class="pfc-avatar">
-          <div class="pfca-img" :style="{background: avatarColor}">{{ userInitial }}</div>
-          <el-upload action="#" :auto-upload="false" :show-file-list="false" accept="image/*" :on-change="onAvatarChange" class="pfca-upload">
-            <el-button size="small" text>📷 更换头像</el-button>
-          </el-upload>
+          <div class="pfca-img" :style="{ background: avatarColor }">
+            <img v-if="avatarUrl" :src="avatarUrl" class="pfca-photo" alt="头像" />
+            <template v-else>{{ userInitial }}</template>
+          </div>
+          <el-button size="small" text @click="showCropper = true">📷 更换头像</el-button>
         </div>
         <div class="pfc-info">
           <div class="pfci-row"><span class="pfci-label">用户名</span><span>{{ user?.username || '-' }}</span></div>
@@ -37,8 +38,7 @@
         <div class="pfc-head">{{ isTeacher ? '我的学生' : '我的老师' }}</div>
         <div class="pfc-rel-list" v-if="relations.length">
           <div v-for="r in relations" :key="r.id" class="pfcr-item">
-            <span class="pfcr-avatar" :style="{background: hashColor(r.name)}" @click="viewProfile(r)" style="cursor:pointer" :title="'查看'+r.name+'的主页'">{{ r.name?.[0] }}</span>
-            <span class="pfcr-name" @click="viewProfile(r)" style="cursor:pointer">{{ r.name }}</span>
+            <UserPopover :uid="r.uid" :name="r.name" />
             <el-tag size="small" :type="r.status==='accepted'?'success':'warning'">{{ r.status==='accepted'?'已关联':'待确认' }}</el-tag>
             <el-button v-if="r.status==='accepted'" size="small" text type="danger" @click="removeRelation(r)">移除</el-button>
           </div>
@@ -70,8 +70,7 @@
         <div class="pfc-head">我的同事</div>
         <div class="pfc-rel-list" v-if="colleagues.length">
           <div v-for="r in colleagues" :key="r.id" class="pfcr-item">
-            <span class="pfcr-avatar" :style="{background: hashColor(r.name)}" @click="viewColleague(r)" style="cursor:pointer" :title="'查看'+r.name+'的主页'">{{ r.name?.[0] }}</span>
-            <span class="pfcr-name" @click="viewColleague(r)" style="cursor:pointer">{{ r.name }}</span>
+            <UserPopover :uid="r.uid" :name="r.name" />
             <el-tag size="small" type="success">已关联</el-tag>
             <el-button size="small" text type="danger" @click="removeColleague(r)">移除</el-button>
           </div>
@@ -99,23 +98,33 @@
         </div>
       </div>
     </div>
+
+    <AvatarCropper v-model="showCropper" @saved="handleAvatarSaved" />
+
+    <el-dialog v-model="previewVisible" title="用户信息" width="360px">
+      <UserInfoCard :info="previewInfo" :uid="previewUid" :loading="previewLoading" />
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 import http from '@/api/request'
+import AvatarCropper from '@/components/AvatarCropper.vue'
+import UserPopover from '@/components/UserPopover.vue'
+import UserInfoCard from '@/components/UserInfoCard.vue'
+import { uploadAvatar } from '@/api/common/auth'
 
-const router = useRouter()
 const auth = useAuthStore()
 const user = computed(() => auth.user)
 const isTeacher = computed(() => auth.isTeacher)
 const roleLabel = computed(() => isTeacher.value ? '老师' : auth.isStudent ? '学生' : '管理员')
 const userInitial = computed(() => (user.value?.realName || '用')[0])
 const avatarColor = computed(() => hashColor(user.value?.realName || 'User'))
+const avatarUrl = computed(() => user.value?.avatar || '')
+const showCropper = ref(false)
 const uidDisplay = computed(() => {
   const id = user.value?.uid || user.value?.id || ''
   return String(id).padStart(8, '0')
@@ -138,9 +147,21 @@ async function copyUid() { await navigator.clipboard.writeText(uidDisplay.value)
 
 function hashColor(s) { const h = (s||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0); return `hsl(${h%360},50%,60%)` }
 
-function onAvatarChange(file) {
-  // TODO: 上传头像到后端
-  ElMessage.info('头像上传功能开发中')
+const avatarSaving = ref(false)
+async function handleAvatarSaved(blob) {
+  const fd = new FormData()
+  fd.append('file', blob, 'avatar.png')
+  avatarSaving.value = true
+  try {
+    const res = await uploadAvatar(fd)
+    const url = res?.url || res?.avatar
+    if (!url) { ElMessage.error('上传失败：未返回头像地址'); return }
+    auth.setAvatar(url)
+    showCropper.value = false
+    ElMessage.success('头像已更新')
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || e.message || '头像上传失败')
+  } finally { avatarSaving.value = false }
 }
 
 async function loadProfile() {
@@ -155,11 +176,6 @@ async function saveBio(e) {
   try { await http.put('/auth/profile', { bio: e.target.innerText }); editBio.value = e.target.innerText } catch {}
 }
 
-function viewProfile(r) {
-  const role = isTeacher.value ? 'student' : 'teacher'
-  router.push(`/${role}/profile/${r.uid}`)
-}
-
 async function saveSubjects() {
   saving.value = true
   try {
@@ -171,11 +187,25 @@ async function saveSubjects() {
   saving.value = false
 }
 
-function searchUid() {
-  if (!addUid.value) { ElMessage.warning('请输入UID'); return }
-  const role = isTeacher.value ? 'student' : 'teacher'
-  router.push(`/${role}/profile/${addUid.value}`)
+// 悬浮窗预览：输入 UID 后点「查看」，弹窗展示对方信息，不跳转
+const previewVisible = ref(false)
+const previewLoading = ref(false)
+const previewInfo = ref(null)
+const previewUid = ref('')
+
+async function openPreview(uid) {
+  const raw = String(uid ?? '').trim()
+  if (!raw) { ElMessage.warning('请输入UID'); return }
+  const id = raw.padStart(8, '0')
+  previewUid.value = id
+  previewInfo.value = null
+  previewLoading.value = true
+  previewVisible.value = true
+  try { previewInfo.value = await http.get(`/users/${id}`) } catch { previewInfo.value = null }
+  previewLoading.value = false
 }
+
+function searchUid() { openPreview(addUid.value) }
 
 async function sendRequest() {
   if (!addUid.value) { ElMessage.warning('请输入UID'); return }
@@ -196,11 +226,7 @@ async function removeRelation(r) {
   try { await http.delete(`/relations/${r.id}`); loadProfile() } catch {}
 }
 
-function viewColleague(r) { router.push(`/teacher/profile/${r.uid}`) }
-function searchColleague() {
-  if (!addColleagueUid.value) { ElMessage.warning('请输入UID'); return }
-  router.push(`/teacher/profile/${addColleagueUid.value}`)
-}
+function searchColleague() { openPreview(addColleagueUid.value) }
 async function sendColleagueRequest() {
   if (!addColleagueUid.value) { ElMessage.warning('请输入UID'); return }
   colleagueSending.value = true
@@ -221,7 +247,8 @@ onMounted(loadProfile)
 .pf-card{background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 1px 6px rgba(0,0,0,.04);border:1px solid var(--color-border)}
 .pfc-head{font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:14px}
 .pfc-avatar{display:flex;align-items:center;gap:14px;margin-bottom:16px}
-.pfca-img{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff}
+.pfca-img{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0}
+.pfca-photo{width:100%;height:100%;object-fit:cover;display:block}
 .pfca-upload{margin-left:0}
 .pfci-row{display:flex;gap:12px;align-items:center;padding:6px 0;font-size:14px;color:var(--text-primary)}
 .pfci-label{color:var(--text-muted);width:60px;flex-shrink:0}

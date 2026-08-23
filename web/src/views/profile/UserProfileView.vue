@@ -3,7 +3,10 @@
     <div class="up-back"><el-button text @click="$router.back()">← 返回</el-button></div>
 
     <div class="up-card" v-if="profile">
-      <div class="upc-avatar" :style="{background: hashColor(profile.name)}">{{ profile.name?.[0] }}</div>
+      <div class="upc-avatar" :style="{background: hashColor(profile.name)}">
+        <img v-if="profile.avatar" :src="profile.avatar" class="upc-photo" alt="头像" />
+        <template v-else>{{ profile.name?.[0] }}</template>
+      </div>
       <h2>{{ profile.name }}</h2>
       <p class="upc-role">{{ profile.role==='teacher'?'老师':'学生' }} · UID {{ String(profile.uid||'').padStart(8,'0') }}</p>
 
@@ -57,7 +60,8 @@ onMounted(async () => {
 .up-page{max-width:480px;margin:0 auto;padding:20px 14px 40px}
 .up-back{margin-bottom:16px}
 .up-card{background:#fff;border-radius:16px;padding:32px 28px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,.04);border:1px solid var(--color-border)}
-.upc-avatar{width:72px;height:72px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;color:#fff;margin-bottom:14px}
+.upc-avatar{width:72px;height:72px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;color:#fff;margin-bottom:14px;overflow:hidden}
+.upc-photo{width:100%;height:100%;object-fit:cover;display:block}
 .up-card h2{font-size:22px;font-weight:700;margin-bottom:4px;color:var(--text-primary)}
 .upc-role{font-size:13px;color:var(--text-muted);margin-bottom:20px}
 .upcb-label{font-size:12px;color:var(--text-muted);margin-bottom:6px}
