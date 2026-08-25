@@ -64,3 +64,13 @@ export function deleteResource(id) {
 export function getResourceDownloadUrl(id) {
   return `/api/v1/resource/resources/${id}/download`
 }
+// 预览：返回 { type: 'pdf'|'image'|'none', url }；后端未实现 404/500 时由调用方兜底
+export function getResourcePreview(id) {
+  return http.get(`/resource/resources/${id}/preview`)
+}
+// 解压 zip 内部清单（仅 zip，rar 由后端拒绝）：返回 { files: [{ path, name, size, previewable }] }
+export function inspectArchive(file) {
+  const fd = new FormData()
+  fd.append('file', file)
+  return http.post('/resource/archive/inspect', fd)
+}
