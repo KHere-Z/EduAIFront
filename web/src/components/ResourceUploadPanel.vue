@@ -139,14 +139,27 @@
         multiple
         :auto-upload="false"
         v-model:file-list="fileList"
-        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar"
+        :on-remove="onFileRemove"
+        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip"
       >
         <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
         <div class="el-upload__text">拖拽文件到此处，或<em>点击选择</em></div>
         <template #tip>
-          <div class="el-upload__tip">支持 PDF / Word / PPT / Excel / 压缩包，可多选批量上传</div>
+          <div class="el-upload__tip">支持 PDF / Word / PPT / Excel / 压缩包（仅 zip），可多选批量上传</div>
         </template>
       </el-upload>
+
+      <!-- 压缩包预览入口（仅 zip） -->
+      <div class="rup-zip" v-if="zipFiles.length">
+        <div class="rup-zip-title">📦 压缩包预览入口（可选）</div>
+        <div class="rup-zip-hint">为压缩包指定内部某个文件作为试看预览入口；不指定则该压缩包不可预览。</div>
+        <div v-for="f in zipFiles" :key="f.uid" class="rup-zip-item">
+          <span class="rup-zip-name">{{ f.name }}</span>
+          <el-tag v-if="previewMap[f.uid]" size="small" type="success" effect="plain" class="rup-zip-tag">{{ previewMap[f.uid] }}</el-tag>
+          <el-button size="small" :loading="inspectingUid === f.uid" @click="pickPreview(f)">{{ previewMap[f.uid] ? '重选' : '选择预览文件' }}</el-button>
+          <el-button v-if="previewMap[f.uid]" size="small" text type="danger" @click="clearPreview(f)">清除</el-button>
+        </div>
+      </div>
 
       <el-button class="rup-submit" type="primary" :loading="uploading" :disabled="!fileList.length" @click="doUpload">
         上传 {{ fileList.length }} 个文件
@@ -214,6 +227,25 @@
       </div>
       <el-empty v-else description="暂无数据" :image-size="60" />
     </el-dialog>
+
+    <!-- 压缩包预览入口选择 -->
+    <el-dialog v-model="inspectVisible" title="选择预览文件" width="480px">
+      <div v-if="inspectLoading" class="rup-inspect-loading">正在解析压缩包…</div>
+      <template v-else-if="inspectFiles.length">
+        <div class="rup-inspect-hint">选择一个文件作为该压缩包的试看预览入口（仅标注可预览的文件可选）</div>
+        <el-radio-group v-model="pickedPath" class="rup-pick-list">
+          <el-radio v-for="it in inspectFiles" :key="it.path" :value="it.path" :disabled="!it.previewable" class="rup-pick-item">
+            <span class="rup-pick-name">{{ it.path }}</span>
+            <span v-if="!it.previewable" class="rup-pick-disabled">（不支持预览）</span>
+          </el-radio>
+        </el-radio-group>
+      </template>
+      <el-empty v-else description="压缩包内无可预览文件" :image-size="60" />
+      <template #footer>
+        <el-button @click="inspectVisible = false">取消</el-button>
+        <el-button type="primary" :disabled="!pickedPath" @click="confirmPick">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -221,6 +253,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listTextbooks, createTextbook, updateTextbook, removeTextbook, reorderTextbooks, listChapters, createChapter, updateChapter, removeChapter, reorderChapters, listSections, createSection, updateSection, removeSection, reorderSections, listResources, addResources, removeResource } from '@/utils/resourceService'
+import { inspectArchive } from '@/api/common/resources'
 
 const props = defineProps({
   subject: { type: String, default: 'math' },
@@ -278,6 +311,52 @@ const price = ref(props.priceMode === 'fixed' ? props.fixedPrice : 100)
 const fileList = ref([])
 const uploading = ref(false)
 const resList = ref([])
+
+// —— 压缩包预览入口（仅 zip）——
+const previewMap = ref({}) // { file.uid: 内部预览文件 path }
+const inspectingUid = ref('')
+const inspectVisible = ref(false)
+const inspectLoading = ref(false)
+const inspectFiles = ref([])
+const pickedPath = ref('')
+const currentZipUid = ref('')
+
+const zipFiles = computed(() => fileList.value.filter(f => (f.name || '').toLowerCase().endsWith('.zip')))
+
+function onFileRemove(file) {
+  // 移除 zip 时清理其预览入口
+  if (previewMap.value[file.uid]) delete previewMap.value[file.uid]
+}
+
+async function pickPreview(f) {
+  currentZipUid.value = f.uid
+  pickedPath.value = previewMap.value[f.uid] || ''
+  inspectVisible.value = true
+  inspectLoading.value = true
+  inspectFiles.value = []
+  const raw = f.raw
+  if (!raw) { inspectLoading.value = false; return }
+  try {
+    const res = await inspectArchive(raw)
+    inspectFiles.value = res?.files || res || []
+  } catch (e) {
+    ElMessage.warning('解析压缩包失败（后端未就绪），可手动填写预览文件路径')
+    inspectFiles.value = []
+  } finally {
+    inspectLoading.value = false
+  }
+}
+
+function confirmPick() {
+  if (!pickedPath.value || !currentZipUid.value) return
+  previewMap.value[currentZipUid.value] = pickedPath.value
+  inspectVisible.value = false
+  currentZipUid.value = ''
+}
+
+function clearPreview(f) {
+  delete previewMap.value[f.uid]
+}
 
 // —— 管理（编辑 / 拖动排序 / 删除）——
 const manageVisible = ref(false)
@@ -538,13 +617,20 @@ async function confirmAddSection() {
 }
 
 async function doUpload() {
-  const files = fileList.value.map(f => f.raw).filter(Boolean)
+  const files = []
+  const previewPaths = []
+  for (const f of fileList.value) {
+    if (!f.raw) continue
+    files.push(f.raw)
+    previewPaths.push(previewMap.value[f.uid] || '')
+  }
   if (!files.length) return
   uploading.value = true
   try {
-    await addResources(sectionId.value, subject.value, resType.value, resYear.value, price.value, shared.value, files)
+    await addResources(sectionId.value, subject.value, resType.value, resYear.value, price.value, shared.value, files, previewPaths)
     ElMessage.success(`已上传 ${files.length} 个文件`)
     fileList.value = []
+    previewMap.value = {}
     await loadResList()
   } catch (e) { ElMessage.error(e.message || '上传失败') } finally { uploading.value = false }
 }
@@ -574,6 +660,20 @@ onMounted(loadTextbooks)
 .rup-price-tip { font-size: 12px; color: var(--text-muted); }
 .rup-upload :deep(.el-upload-dragger) { padding: 28px 0 }
 .rup-submit { margin-top: 14px }
+
+/* 压缩包预览入口 */
+.rup-zip { margin-top: 14px; padding: 12px 14px; background: var(--color-bg); border: 1px dashed var(--color-border); border-radius: 10px }
+.rup-zip-title { font-size: 13px; font-weight: 600; color: var(--text-primary) }
+.rup-zip-hint { font-size: 12px; color: var(--text-muted); margin: 4px 0 10px }
+.rup-zip-item { display: flex; align-items: center; gap: 8px; padding: 6px 0 }
+.rup-zip-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-primary) }
+.rup-zip-tag { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.rup-inspect-loading { text-align: center; padding: 30px 0; color: var(--text-muted); font-size: 13px }
+.rup-inspect-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 10px }
+.rup-pick-list { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow: auto }
+.rup-pick-item { margin: 0; height: auto; padding: 6px 4px }
+.rup-pick-name { font-size: 13px; color: var(--text-primary) }
+.rup-pick-disabled { font-size: 12px; color: var(--text-muted) }
 
 .rup-manage-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 8px }
 .rup-manage-list { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow: auto }

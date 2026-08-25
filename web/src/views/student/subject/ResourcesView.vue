@@ -73,6 +73,7 @@
                 </div>
               </div>
               <div class="resli-right">
+                <el-button size="small" @click="openPreview(r)">预览</el-button>
                 <el-button size="small" type="primary" @click="downloadRes(r)">下载</el-button>
               </div>
             </div>
@@ -81,6 +82,8 @@
         </div>
       </main>
     </div>
+
+    <PreviewModal v-model="previewVisible" :resource="previewResource" />
   </div>
 </template>
 
@@ -92,6 +95,7 @@ import { useAuthStore } from '@/store/auth'
 import { usePointsStore } from '@/store/points'
 import { listTextbooks, listChapters, listSections, listResources } from '@/utils/resourceService'
 import { getResourceDownloadUrl } from '@/api/common/resources'
+import PreviewModal from '@/components/PreviewModal.vue'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -178,6 +182,14 @@ function fmtSize(n) {
 }
 function tagType(t) {
   return { 课件: 'primary', 学案: 'success', 作业: 'warning', 试卷: 'danger' }[t] || 'info'
+}
+
+// 预览
+const previewVisible = ref(false)
+const previewResource = ref(null)
+function openPreview(r) {
+  previewResource.value = r
+  previewVisible.value = true
 }
 
 async function downloadRes(r) {
