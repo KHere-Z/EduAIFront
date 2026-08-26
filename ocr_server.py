@@ -5,7 +5,7 @@ PaddleOCR 代理：PaddleOCR-VL 官方优先，失败自动降级 DeepSeek-OCR�
 """
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn, tempfile, os, requests, time, json, base64
+import uvicorn, tempfile, os, requests, time, json, base64, re, ast
 
 
 # ---------- 加载 .env（本地凭证，已被 .gitignore 忽略） ----------
@@ -136,11 +136,39 @@ def call_paddle(tmp_path):
             "pages": pages, "source": "paddle"}
 
 
-# ---------- L2：DeepSeek-OCR（Markdown 输出，支持 PDF） ----------
+# ---------- L2：DeepSeek-OCR（grounding 定位，输出 blocks 带 bbox，支持 PDF） ----------
 _MIME = {
     ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
     ".bmp": "image/bmp", ".webp": "image/webp", ".pdf": "application/pdf",
 }
+
+# DeepSeek-OCR grounding 格式：<|ref|>文本<|/ref|><|det|>[[x1,y1,x2,y2]]<|/det|>，坐标 0-999 归一化
+_GROUND_RE = re.compile(
+    r"<\|ref\|>(.*?)<\|/ref\|>\s*<\|det\|>\s*\[\[(.*?)\]\](?:\s*<\|/det\|>)",
+    re.DOTALL,
+)
+
+
+def _parse_deepseek(raw):
+    """把 grounding 输出解析成 blocks（label/content/bbox），并返回去标签后的干净文本。"""
+    blocks, clean, last_end = [], [], 0
+    for m in _GROUND_RE.finditer(raw):
+        clean.append(raw[last_end:m.start()])
+        content = m.group(1).strip()
+        bbox = None
+        try:
+            coords = ast.literal_eval("[[" + m.group(2) + "]]")[0]
+            bbox = [int(round(float(v))) for v in coords[:4]]
+        except Exception:
+            bbox = None
+        if content and bbox:
+            blocks.append({"label": "text", "content": content, "bbox": bbox,
+                           "order": len(blocks), "imageUrl": None})
+        clean.append(content)
+        last_end = m.end()
+    clean.append(raw[last_end:])
+    text = "".join(clean).strip()
+    return blocks, text
 
 
 def call_deepseek(tmp_path):
@@ -153,15 +181,18 @@ def call_deepseek(tmp_path):
         "model": DS_OCR_MODEL,
         "messages": [{"role": "user", "content": [
             {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
-            {"type": "text", "text": "<image>\nConvert the document to markdown."}
+            {"type": "text", "text": "<image>\n<|grounding|>Convert the document to markdown."}
         ]}],
     }
     r = requests.post(DS_OCR_URL, json=payload,
                       headers={"Authorization": f"Bearer {DS_OCR_KEY}"}, timeout=30)
     r.raise_for_status()
-    text = (r.json()["choices"][0]["message"]["content"] or "").strip()
+    raw = (r.json()["choices"][0]["message"]["content"] or "").strip()
+    blocks, text = _parse_deepseek(raw)
+    # 坐标是 0-999 归一化，width/height 统一 999，前端 bboxToPct 直接得到百分比
+    pages = [{"width": 999, "height": 999, "blocks": blocks}] if blocks else []
     return {"text": text, "lines": text.count("\n") + 1, "images": [],
-            "pages": [], "source": "deepseek"}
+            "pages": pages, "source": "deepseek"}
 
 
 @app.post("/ocr")
