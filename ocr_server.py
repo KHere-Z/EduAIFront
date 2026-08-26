@@ -1,113 +1,214 @@
 """
-PaddleOCR 在线 API 代理
-启动：pip install requests && python ocr_server.py
+PaddleOCR 代理：PaddleOCR-VL 官方优先，失败自动降级 DeepSeek-OCR（高可用，无本地依赖）。
+启动：pip install requests fastapi uvicorn && python ocr_server.py
+凭证通过 .env 文件或系统环境变量注入（不硬编码，避免提交进 git）。
 """
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn, tempfile, os, requests, time, json
+import uvicorn, tempfile, os, requests, time, json, base64
 
-JOB_URL = "https://paddleocr.aistudio-app.com/api/v2/ocr/jobs"
-TOKEN = "9050dafb2f695af932ddbe16f1b97c80ec094588"
-MODEL = "PaddleOCR-VL-1.6"
+
+# ---------- 加载 .env（本地凭证，已被 .gitignore 忽略） ----------
+def _load_env(path=".env"):
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+
+
+_load_env()
+
+# ---------- L1：PaddleOCR-VL 官方（完整版面解析 + 配图） ----------
+PADDLE_JOB_URL = "https://paddleocr.aistudio-app.com/api/v2/ocr/jobs"
+PADDLE_TOKEN = os.environ.get("PADDLEOCR_TOKEN", "")
+PADDLE_MODEL = "PaddleOCR-VL-1.6"
+
+# ---------- L2：DeepSeek-OCR（SiliconFlow 云端，OpenAI 兼容，支持 PDF） ----------
+DS_OCR_URL = "https://api.siliconflow.cn/v1/chat/completions"
+DS_OCR_KEY = os.environ.get("DEEPSEEK_OCR_API_KEY", "")
+DS_OCR_MODEL = "deepseek-ai/DeepSeek-OCR"
 
 app = FastAPI(title="PaddleOCR Proxy")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+
+# ---------- 熔断器：连续失败 N 次熔断，冷却后恢复 ----------
+CIRCUIT_THRESHOLD = 3
+CIRCUIT_COOLDOWN = 30
+_circuit = {
+    "paddle": {"fails": 0, "open_until": 0.0},
+    "deepseek": {"fails": 0, "open_until": 0.0},
+}
+
+
+def _is_open(name):
+    return time.time() < _circuit[name]["open_until"]
+
+
+def _record_fail(name):
+    c = _circuit[name]
+    c["fails"] += 1
+    if c["fails"] >= CIRCUIT_THRESHOLD:
+        c["open_until"] = time.time() + CIRCUIT_COOLDOWN
+        c["fails"] = 0
+
+
+def _record_ok(name):
+    c = _circuit[name]
+    c["fails"] = 0
+    c["open_until"] = 0.0
+
+
+# ---------- L1：PaddleOCR-VL 官方 ----------
+def call_paddle(tmp_path):
+    headers = {"Authorization": f"bearer {PADDLE_TOKEN}"}
+    data = {"model": PADDLE_MODEL, "optionalPayload": json.dumps({
+        "useDocOrientationClassify": False,
+        "useDocUnwarping": False,
+        "useChartRecognition": False
+    })}
+    with open(tmp_path, "rb") as f:
+        resp = requests.post(PADDLE_JOB_URL, headers=headers, data=data,
+                             files={"file": f}, timeout=8)
+    resp.raise_for_status()
+    job_id = resp.json()["data"]["jobId"]
+
+    for _ in range(20):  # 最多约 60 秒
+        r = requests.get(f"{PADDLE_JOB_URL}/{job_id}", headers=headers, timeout=8)
+        r.raise_for_status()
+        state = r.json()["data"]["state"]
+        if state == "done":
+            json_url = r.json()["data"]["resultUrl"]["jsonUrl"]
+            break
+        elif state == "failed":
+            raise RuntimeError(r.json()["data"].get("errorMsg", "OCR failed"))
+        time.sleep(3)
+    else:
+        raise TimeoutError("PaddleOCR timeout")
+
+    result = requests.get(json_url, timeout=15)
+    result.raise_for_status()
+    texts, images, pages = [], [], []
+    for line in result.text.strip().split("\n"):
+        if not line.strip():
+            continue
+        obj = json.loads(line)
+        result_obj = obj.get("result", {}) or {}
+        data_info = result_obj.get("dataInfo", {}) or {}
+        width, height = data_info.get("width"), data_info.get("height")
+        for res in result_obj.get("layoutParsingResults", []):
+            pruned = res.get("prunedResult", {}) or {}
+            md = res.get("markdown", {}) or {}
+            if not width:
+                width = pruned.get("width")
+            if not height:
+                height = pruned.get("height")
+            image_urls = list((md.get("images") or {}).values())
+            image_idx = 0
+            blocks = []
+            for b in (pruned.get("parsing_res_list") or []):
+                content = (b.get("block_content") or "").strip()
+                label = b.get("block_label")
+                image_url = None
+                if label == "image" and image_idx < len(image_urls):
+                    image_url = image_urls[image_idx]
+                    image_idx += 1
+                    images.append({"name": "block_{}".format(b.get("block_id")), "url": image_url})
+                if content:
+                    texts.append(content)
+                blocks.append({
+                    "label": label,
+                    "content": content,
+                    "bbox": b.get("block_bbox"),
+                    "order": b.get("block_order"),
+                    "imageUrl": image_url,
+                })
+            if not any(b.get("content") for b in blocks):
+                md_text = (md.get("text") or "").strip()
+                if md_text:
+                    texts.append(md_text)
+            pages.append({"width": width, "height": height, "blocks": blocks})
+
+    return {"text": "\n\n".join(texts), "lines": len(texts), "images": images,
+            "pages": pages, "source": "paddle"}
+
+
+# ---------- L2：DeepSeek-OCR（Markdown 输出，支持 PDF） ----------
+_MIME = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+    ".bmp": "image/bmp", ".webp": "image/webp", ".pdf": "application/pdf",
+}
+
+
+def call_deepseek(tmp_path):
+    ext = os.path.splitext(tmp_path)[1].lower()
+    mime = _MIME.get(ext, "image/png")
+    with open(tmp_path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+
+    payload = {
+        "model": DS_OCR_MODEL,
+        "messages": [{"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+            {"type": "text", "text": "<image>\nConvert the document to markdown."}
+        ]}],
+    }
+    r = requests.post(DS_OCR_URL, json=payload,
+                      headers={"Authorization": f"Bearer {DS_OCR_KEY}"}, timeout=30)
+    r.raise_for_status()
+    text = (r.json()["choices"][0]["message"]["content"] or "").strip()
+    return {"text": text, "lines": text.count("\n") + 1, "images": [],
+            "pages": [], "source": "deepseek"}
+
+
 @app.post("/ocr")
 async def ocr_image(file: UploadFile = File(...)):
-    """上传图片，返回 OCR 识别文字"""
+    """上传图片/PDF，返回 OCR 识别文字。PaddleOCR-VL 优先，失败降级 DeepSeek-OCR。"""
     suffix = os.path.splitext(file.filename or "img.png")[1] or ".png"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(await file.read())
         tmp_path = tmp.name
 
     try:
-        # 1. 提交 OCR 任务
-        headers = {"Authorization": f"bearer {TOKEN}"}
-        # 跳过配图识别、文档矫正、方向检测，只做纯文字OCR
-        data = {"model": MODEL, "optionalPayload": json.dumps({
-            "useDocOrientationClassify": False,
-            "useDocUnwarping": False,
-            "useChartRecognition": False
-        })}
-        with open(tmp_path, "rb") as f:
-            resp = requests.post(JOB_URL, headers=headers, data=data, files={"file": f})
-        resp.raise_for_status()
-        job_id = resp.json()["data"]["jobId"]
-
-        # 2. 轮询等待结果
-        for _ in range(60):  # 最多等 5 分钟
-            r = requests.get(f"{JOB_URL}/{job_id}", headers=headers)
-            r.raise_for_status()
-            state = r.json()["data"]["state"]
-            if state == "done":
-                json_url = r.json()["data"]["resultUrl"]["jsonUrl"]
-                break
-            elif state == "failed":
-                return {"text": "", "error": r.json()["data"].get("errorMsg", "OCR failed")}
-            time.sleep(3)
-        else:
-            return {"text": "", "error": "OCR timeout"}
-
-        # 3. 下载结果，提取文字 + 图片 + 版面块坐标（供前端画蓝框）
-        result = requests.get(json_url)
-        result.raise_for_status()
-        texts = []
-        images = []
-        pages = []
-        for line in result.text.strip().split("\n"):
-            if not line.strip(): continue
-            obj = json.loads(line)
-            result_obj = obj.get("result", {}) or {}
-            data_info = result_obj.get("dataInfo", {}) or {}
-            width = data_info.get("width")
-            height = data_info.get("height")
-            for res in result_obj.get("layoutParsingResults", []):
-                pruned = res.get("prunedResult", {}) or {}
-                md = res.get("markdown", {}) or {}
-                if not width:
-                    width = pruned.get("width")
-                if not height:
-                    height = pruned.get("height")
-                # 图片 URL（按检测顺序与 image 块一一对应）
-                image_urls = list((md.get("images") or {}).values())
-                image_idx = 0
-                blocks = []
-                for b in (pruned.get("parsing_res_list") or []):
-                    content = (b.get("block_content") or "").strip()
-                    label = b.get("block_label")
-                    image_url = None
-                    if label == "image" and image_idx < len(image_urls):
-                        image_url = image_urls[image_idx]
-                        image_idx += 1
-                        images.append({"name": "block_{}".format(b.get("block_id")), "url": image_url})
-                    if content:
-                        texts.append(content)
-                    blocks.append({
-                        "label": label,
-                        "content": content,
-                        "bbox": b.get("block_bbox"),   # [x1, y1, x2, y2] 像素坐标
-                        "order": b.get("block_order"),
-                        "imageUrl": image_url,
-                    })
-                # 若版面块未解析出文字，回退用 markdown 全文，供前端兜底
-                if not any(b.get("content") for b in blocks):
-                    md_text = (md.get("text") or "").strip()
-                    if md_text:
-                        texts.append(md_text)
-                pages.append({"width": width, "height": height, "blocks": blocks})
-
-        return {"text": "\n\n".join(texts), "lines": len(texts), "images": images, "pages": pages}
-    except Exception as e:
-        # 远程 OCR 服务不可用 / Token 失效等：返回 JSON 而非 500，前端可优雅降级
-        return {"text": "", "lines": 0, "images": [], "error": f"OCR 调用失败: {e}"}
+        # L1：PaddleOCR-VL
+        try:
+            if _is_open("paddle"):
+                raise RuntimeError("paddle circuit open")
+            result = call_paddle(tmp_path)
+            _record_ok("paddle")
+            return result
+        except Exception as e1:
+            _record_fail("paddle")
+            # L2：DeepSeek-OCR
+            try:
+                if _is_open("deepseek"):
+                    raise RuntimeError("deepseek circuit open")
+                result = call_deepseek(tmp_path)
+                _record_ok("deepseek")
+                return result
+            except Exception as e2:
+                _record_fail("deepseek")
+                return {"text": "", "lines": 0, "images": [], "pages": [],
+                        "error": f"OCR 调用失败(Paddle:{e1}; DeepSeek:{e2})"}
     finally:
-        os.unlink(tmp_path)
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "paddle": "open" if not _is_open("paddle") else "circuit-open",
+        "deepseek": "open" if not _is_open("deepseek") else "circuit-open",
+    }
+
 
 if __name__ == "__main__":
-    print("PaddleOCR online proxy ready: http://localhost:8765")
+    print("PaddleOCR proxy ready: http://localhost:8765")
     uvicorn.run(app, host="0.0.0.0", port=8765, log_level="warning")
