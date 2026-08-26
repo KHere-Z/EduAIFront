@@ -40,6 +40,12 @@ export function getUserInfo() {
   return http.get('/auth/me')
 }
 
+// 上传/更新头像（multipart 单文件），返回 { url } 并写入用户头像
+export function uploadAvatar(formData) {
+  // 不手动设 Content-Type，交给浏览器补 multipart/form-data; boundary
+  return http.post('/auth/avatar', formData)
+}
+
 // 注册
 export function register(data) {
   return http.post('/auth/register', data)

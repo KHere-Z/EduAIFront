@@ -70,7 +70,7 @@ export async function createSection(chapterId, data) {
 export async function listResources(sectionId) {
   return withFallback(() => api.getResources({ sectionId }), () => read(K.resources).filter(r => r.sectionId === sectionId))
 }
-export async function addResources(sectionId, subject, tag, year, price, shared, files) {
+export async function addResources(sectionId, subject, tag, year, price, shared, files, previewPaths = []) {
   return withFallback(
     () => {
       const fd = new FormData()
@@ -81,17 +81,21 @@ export async function addResources(sectionId, subject, tag, year, price, shared,
       fd.append('price', price)
       fd.append('shared', shared ? 'true' : 'false')
       files.forEach(f => fd.append('files', f))
+      // previewPaths 与 files 按索引对齐（空串=无预览入口），仅压缩包需要
+      if (previewPaths.some(p => p)) fd.append('previewPaths', JSON.stringify(previewPaths))
       return api.uploadResources(fd)
     },
     async () => {
       const list = read(K.resources)
       const created = []
-      for (const f of files) {
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i]
         const data = await fileToBase64(f)
         const item = {
           id: uid(), sectionId, subject, type: tag, tag, year, price, shared,
           title: f.name, fileName: f.name, fileSize: f.size,
           data, author: '管理员', createdAt: Date.now(),
+          previewPath: previewPaths[i] || undefined,
         }
         list.push(item); created.push(item)
       }

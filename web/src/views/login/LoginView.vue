@@ -181,7 +181,6 @@ async function navigateByRole(roleType) {
 const roles = [
   { label: '老师', value: 'teacher', icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M20 8v6M17 11h6"/></svg>` },
   { label: '学生', value: 'student', icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M22 10v5M6 3l14 7-14 7"/><path d="M2 12v7"/></svg>` },
-  { label: '管理', value: 'admin', icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/></svg>` },
 ]
 
 const features = [
@@ -246,7 +245,7 @@ onBeforeUnmount(() => cancelAnimationFrame(animId))
 .lt-btn { flex: 1; padding: 8px 12px; border: none; border-radius: 8px; background: transparent; color: #64748B; font-size: 13px; cursor: pointer; transition: all .2s; font-family: inherit; }
 .lt-btn.active { background: rgba(99,102,241,.2); color: #A5B4FC; font-weight: 600; }
 
-.role-switch { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; padding: 4px; border-radius: 10px; background: rgba(255,255,255,.04); margin-bottom: 20px; }
+.role-switch { display: grid; grid-template-columns: repeat(2,1fr); gap: 6px; padding: 4px; border-radius: 10px; background: rgba(255,255,255,.04); margin-bottom: 20px; }
 .rs-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px; border: none; border-radius: 8px; background: transparent; color: #475569; font-size: 12px; cursor: pointer; transition: all .2s; font-family: inherit; }
 .rs-btn.active { background: rgba(99,102,241,.2); color: #A5B4FC; font-weight: 600; }
 .rs-icon { color: inherit; display: flex; align-items: center; justify-content: center; }
