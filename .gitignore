@@ -11,6 +11,9 @@ body.json
 # Python
 __pycache__/
 *.pyc
+ocr_venv/
+.venv/
+venv/
 
 # Maven / IDE
 server/target/
