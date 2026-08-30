@@ -506,12 +506,12 @@ async function send() {
   try {
     const pts = await http.get('/user/points')
     const balance = pts?.points ?? pts?.data?.points ?? 0
-    if (balance < 5) {
-      ElMessageBox.confirm(`智学点不足！当前余额 ${balance} 点，本次分析需消耗 5 点。是否前往充值？`, '智学点不足', { confirmButtonText:'去充值', cancelButtonText:'取消', type:'warning' })
+    if (balance < 3) {
+      ElMessageBox.confirm(`智学点不足！当前余额 ${balance} 点，本次分析需消耗 3 点。是否前往充值？`, '智学点不足', { confirmButtonText:'去充值', cancelButtonText:'取消', type:'warning' })
         .then(() => router.push('/' + (route.path.startsWith('/teacher') ? 'teacher' : 'student') + '/recharge'))
       return
     }
-    await ElMessageBox.confirm(`本次 AI 错题分析将消耗 5 智学点（当前余额 ${balance} 点），是否继续？`, '确认消耗', { confirmButtonText:'确认分析', cancelButtonText:'取消', type:'info' })
+    await ElMessageBox.confirm(`本次 AI 错题分析将消耗 3 智学点（当前余额 ${balance} 点），是否继续？`, '确认消耗', { confirmButtonText:'确认分析', cancelButtonText:'取消', type:'info' })
   } catch (e) { if (e !== 'confirm') return }
 
   inputText.value = ''; pendingFiles.value = []

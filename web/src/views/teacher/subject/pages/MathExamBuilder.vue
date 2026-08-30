@@ -112,11 +112,14 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRouter } from 'vue-router'
 import { getKnowledgePoints } from '@/api/common/knowledge'
 import { getTeacherQuestions } from '@/api/common/questions'
 import { renderMarkdown } from '@/utils/markdown'
 import { resolveStaticUrl } from '@/utils/url'
+
+const router = useRouter()
 
 const grades = ['初一·上学期','初一·下学期','初二·上学期','初二·下学期','初三·上学期','初三·下学期']
 const kps = ref([])
@@ -266,6 +269,15 @@ function nextPage() { if (focusPi.value < pages.value.length - 1) focusPi.value+
 
 async function printExam() {
   try {
+    const { useAuthStore } = await import('@/store/auth')
+    const token = useAuthStore().token
+    const memRes = await fetch('/api/v1/user/membership', { headers: { 'Authorization': token ? `Bearer ${token}` : '' } })
+    const mem = await memRes.json().catch(() => ({}))
+    if (!mem?.active) {
+      await ElMessageBox.confirm('出卷导出 PDF 为会员专享功能，开通会员后即可使用。是否前往开通？', '会员专享', { confirmButtonText:'去开通', cancelButtonText:'取消', type:'warning' })
+        .then(() => router.push('/teacher/recharge'))
+      return
+    }
     const payload = {
       title: pages.value[0].title || '数学试卷',
       pages: pages.value.map(p => ({
@@ -275,8 +287,6 @@ async function printExam() {
         }))
       }))
     }
-    const { useAuthStore } = await import('@/store/auth')
-    const token = useAuthStore().token
     const res = await fetch('/api/v1/teacher/exam-builder/export-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },

@@ -2,10 +2,10 @@
   <div class="ru-page">
     <div class="ru-head">
       <h2>📚 学习资源上传</h2>
-      <p>选择学科 → 学段 → 教材 → 学期年级 → 章节 → 小节 逐级定位（支持「新增」），末级按类型 + 年份批量上传，统一 200 资源点</p>
+      <p>选择学科 → 学段 → 教材 → 学期年级 → 章节 → 小节 逐级定位（支持「新增」），末级按类型 + 年份批量上传，统一 20 资源点</p>
     </div>
 
-    <ResourceUploadPanel selectable-subject price-mode="fixed" :fixed-price="200" allow-add />
+    <ResourceUploadPanel selectable-subject price-mode="fixed" :fixed-price="20" allow-add />
   </div>
 </template>
 

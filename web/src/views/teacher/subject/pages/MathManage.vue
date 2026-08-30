@@ -141,7 +141,7 @@
         </el-table>
       </el-tab-pane>
       <el-tab-pane label="📚 学习资源" name="resources">
-        <ResourceUploadPanel subject="math" price-mode="tier" />
+        <ResourceUploadPanel subject="math" price-mode="tier" require-review />
       </el-tab-pane>
     </el-tabs>
 

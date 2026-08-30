@@ -41,6 +41,31 @@ export function getAnalysisResult(analysisId) {
   return http.get(`/ai/analysis/${analysisId}`)
 }
 
+// AI 动图 — 生成几何场景
+export function analyzeAnimation(data) {
+  return http.post('/ai/animation', data)
+}
+
+// AI 动图 — 保存历史记录（schema 持久化）
+export function saveAnimation(data) {
+  return http.post('/ai/animation/save', data)
+}
+
+// AI 动图 — 历史列表
+export function getAnimationHistory(params) {
+  return http.get('/ai/animation/history', { params })
+}
+
+// AI 动图 — 历史详情（加载旧 schema）
+export function getAnimationDetail(id) {
+  return http.get(`/ai/animation/history/${id}`)
+}
+
+// AI 动图 — 删除历史
+export function deleteAnimation(id) {
+  return http.delete(`/ai/animation/history/${id}`)
+}
+
 // 流式聊天 — 返回 AsyncGenerator，逐块 yield 文本
 export async function* sendChatMessageStream(data) {
   const { useAuthStore } = await import('@/store/auth')

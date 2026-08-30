@@ -46,7 +46,10 @@
 
 <script setup>
 import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const file = ref(null)
 const fileName = ref('')
@@ -76,6 +79,21 @@ function clearFile() {
 
 async function convert() {
   if (!file.value || converting.value) return
+  // 会员校验：PDF 转 Word 为会员专享功能
+  try {
+    const { useAuthStore } = await import('@/store/auth')
+    const token = useAuthStore().token
+    const memRes = await fetch('/api/v1/user/membership', { headers: { 'Authorization': token ? `Bearer ${token}` : '' } })
+    const mem = await memRes.json().catch(() => ({}))
+    if (!mem?.active) {
+      await ElMessageBox.confirm('PDF 转 Word 为会员专享功能，开通会员后即可使用。是否前往开通？', '会员专享', { confirmButtonText:'去开通', cancelButtonText:'取消', type:'warning' })
+        .then(() => router.push('/teacher/recharge'))
+      return
+    }
+  } catch (e) {
+    ElMessage.error('无法确认会员状态，请稍后重试')
+    return
+  }
   converting.value = true
   done.value = false
   error.value = ''

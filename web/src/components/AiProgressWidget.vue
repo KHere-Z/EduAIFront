@@ -9,11 +9,14 @@
   >
     <div class="apw-head">
       <span class="apw-title">{{ task.title }}</span>
-      <span class="apw-status">
-        <template v-if="task.status === 'done'">✓</template>
-        <template v-else-if="task.status === 'error'">✗</template>
-        <template v-else>{{ task.progress }}%</template>
-      </span>
+      <div class="apw-meta">
+        <span class="apw-status">
+          <template v-if="task.status === 'done'">✓</template>
+          <template v-else-if="task.status === 'error'">✗</template>
+          <template v-else>{{ task.progress }}%</template>
+        </span>
+        <button class="apw-close" title="关闭" @pointerdown.stop @click.stop="close">×</button>
+      </div>
     </div>
     <div class="apw-bar">
       <div class="apw-fill" :class="'apw-fill--' + task.status" :style="{ width: task.progress + '%' }"></div>
@@ -76,6 +79,10 @@ function onPointerUp() {
   if (!wasDragging && task.value?.route) router.push(task.value.route)
 }
 
+function close() {
+  if (task.value?.id) store.remove(task.value.id)
+}
+
 onBeforeUnmount(() => {
   window.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('pointerup', onPointerUp)
@@ -116,6 +123,12 @@ onBeforeUnmount(() => {
 .apw-title::before { content: '⚙️'; font-size: 13px; }
 .apw--done .apw-title::before { content: '✅'; }
 .apw--error .apw-title::before { content: '⚠️'; }
+.apw-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
 .apw-status {
   font-size: 12px;
   font-weight: 700;
@@ -124,6 +137,19 @@ onBeforeUnmount(() => {
 }
 .apw--done .apw-status { color: #10B981; }
 .apw--error .apw-status { color: #EF4444; }
+.apw-close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #6b7280);
+  font-size: 17px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color .15s;
+}
+.apw-close:hover { color: #EF4444; }
 
 .apw-bar {
   height: 6px;

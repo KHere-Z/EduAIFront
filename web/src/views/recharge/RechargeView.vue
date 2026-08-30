@@ -2,7 +2,7 @@
   <div class="rc-page">
     <div class="rc-hero">
       <h2>💰 智学点</h2>
-      <p>会员享折扣 · 1元 = 100智学点</p>
+      <p>1元 = 10智学点 · 学习资源不打折</p>
     </div>
 
     <div class="rc-balance">
@@ -12,9 +12,9 @@
         <span class="rcb-unit">智学点</span>
       </div>
       <div class="rcb-card" v-if="member.active">
-        <span class="rcb-label">{{ member.plan }}</span>
-        <span class="rcb-num">{{ member.discount*10 }}折</span>
-        <span class="rcb-unit">资源折扣</span>
+        <span class="rcb-label">当前会员</span>
+        <span class="rcb-num">{{ member.plan }}</span>
+        <span class="rcb-unit">已开通</span>
       </div>
     </div>
 
@@ -31,7 +31,7 @@
           <div class="rcpc-price">¥{{ p.price }}<span class="rcpc-period">/{{ p.period }}</span></div>
           <div class="rcpc-features">
             <div>送{{ p.points }}点</div>
-            <div>资源 {{ p.discount }}折</div>
+            <div>会员专享功能</div>
           </div>
           <div class="rcpc-check" v-if="selectedPlan===p.id">✓ 已选</div>
         </div>
@@ -48,8 +48,8 @@
         </div>
         <div class="rcp-custom" :class="{active:chargePoints===-1}" @click="chargePoints=-1">
           <span class="rcpo-label">自定义</span>
-          <el-input-number v-model="customPoints" :min="100" :step="100" size="small" style="width:100px" @click.stop/>
-          <span class="rcpo-price">¥{{ (customPoints/100).toFixed(2) }}</span>
+          <el-input-number v-model="customPoints" :min="10" :step="10" size="small" style="width:100px" @click.stop/>
+          <span class="rcpo-price">¥{{ (customPoints/10).toFixed(2) }}</span>
         </div>
       </div>
     </div>
@@ -63,7 +63,7 @@
         </div>
         <div class="rccs-item" v-if="chargePoints">
           <span>智学点 {{ chargePoints===-1?customPoints:chargePoints }}</span>
-          <span class="rccs-price">¥{{ chargePoints===-1?(customPoints/100).toFixed(2):(chargePoints/100) }}</span>
+          <span class="rccs-price">¥{{ chargePoints===-1?(customPoints/10).toFixed(2):(chargePoints/10) }}</span>
         </div>
         <div class="rccs-total">
           <span>合计</span>
@@ -132,7 +132,7 @@ const balance = ref(0)
 const member = ref({ active: false, plan: '', discount: 1.0 })
 const selectedPlan = ref(null)
 const chargePoints = ref(null)
-const customPoints = ref(100)
+const customPoints = ref(10)
 const payChannel = ref('alipay')
 const qrUrl = ref('')
 const orderId = ref('')
@@ -143,19 +143,20 @@ const historyPage = ref(1)
 const historyTotal = ref(0)
 
 const memberPlans = [
-  { id:'month', name:'月卡', price:199, period:'月', points:5000, discount:9 },
-  { id:'quarter', name:'季卡', price:399, period:'季', points:12000, discount:7 },
-  { id:'year', name:'年卡', price:599, period:'年', points:25000, discount:5 },
+  { id:'month', name:'月卡', price:29, period:'月', points:80 },
+  { id:'quarter', name:'季卡', price:79, period:'季', points:220 },
+  { id:'halfyear', name:'半年卡', price:139, period:'半年', points:420 },
+  { id:'year', name:'年卡', price:199, period:'年', points:800 },
 ]
 const pointsOptions = [
-  { points:1000, price:10 }, { points:3000, price:30 },
-  { points:5000, price:50 }, { points:10000, price:100 },
+  { points:100, price:10 }, { points:300, price:30 },
+  { points:500, price:50 }, { points:1000, price:100 },
 ]
 
 const totalAmount = computed(() => {
   let sum = 0
   if (selectedPlan.value) sum += memberPlans.find(p=>p.id===selectedPlan.value)?.price||0
-  if (chargePoints.value) sum += chargePoints.value===-1 ? +(customPoints.value/100).toFixed(2) : chargePoints.value/100
+  if (chargePoints.value) sum += chargePoints.value===-1 ? +(customPoints.value/10).toFixed(2) : chargePoints.value/10
   return sum.toFixed(2)
 })
 
@@ -220,7 +221,7 @@ onMounted(loadData)
 .rc-section{margin-bottom:24px;background:#fff;border-radius:14px;padding:20px;border:1px solid var(--color-border);box-shadow:0 1px 4px rgba(0,0,0,.03)}
 .rcs-head{display:flex;align-items:center;gap:8px;margin-bottom:14px}.rcs-head h3{font-size:15px;font-weight:700;color:var(--text-primary)}.rcs-tag{font-size:11px;color:var(--text-muted);background:var(--color-bg);padding:2px 8px;border-radius:6px}
 
-.rc-plans{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.rc-plans{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .rcp-card{position:relative;padding:18px 14px;border-radius:12px;border:2px solid var(--color-border-light);cursor:pointer;transition:all .15s;text-align:center;background:var(--color-bg)}
 .rcp-card:hover{border-color:var(--color-primary-light)}.rcp-card.active{border-color:var(--color-primary);background:var(--color-primary-bg)}
 .rcpc-badge{position:absolute;top:-8px;right:12px;background:#EF4444;color:#fff;font-size:10px;padding:1px 8px;border-radius:8px}
