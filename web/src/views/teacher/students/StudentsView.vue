@@ -16,8 +16,8 @@
         <el-tab-pane label="待处理" :name="'pending'">
           <el-table :data="pendingRequests" size="small" stripe>
             <el-table-column prop="studentName" label="学生" width="80"/>
-            <el-table-column label="原时间" width="180"><template #default="{row}">{{ row.oldDate }} {{ row.oldStart }}-{{ row.oldEnd }}</template></el-table-column>
-            <el-table-column label="申请改为" width="180"><template #default="{row}">{{ row.newDate }} {{ row.newStart }}-{{ row.newEnd }}</template></el-table-column>
+            <el-table-column label="原时间" width="180"><template #default="{row}">{{ row.originalDate }} {{ row.originalStart }}-{{ row.originalEnd }}</template></el-table-column>
+            <el-table-column label="申请改为" width="180"><template #default="{row}">{{ row.requestedDate }} {{ row.requestedStart }}-{{ row.requestedEnd }}</template></el-table-column>
             <el-table-column prop="reason" label="原因" min-width="120" show-overflow-tooltip/>
             <el-table-column label="操作" width="220" align="center">
               <template #default="{row,$index}">
@@ -32,8 +32,8 @@
         <el-tab-pane label="待议" :name="'deferred'">
           <el-table :data="deferredRequests" size="small" stripe>
             <el-table-column prop="studentName" label="学生" width="80"/>
-            <el-table-column label="原时间" width="180"><template #default="{row}">{{ row.oldDate }} {{ row.oldStart }}-{{ row.oldEnd }}</template></el-table-column>
-            <el-table-column label="申请改为" width="180"><template #default="{row}">{{ row.newDate }} {{ row.newStart }}-{{ row.newEnd }}</template></el-table-column>
+            <el-table-column label="原时间" width="180"><template #default="{row}">{{ row.originalDate }} {{ row.originalStart }}-{{ row.originalEnd }}</template></el-table-column>
+            <el-table-column label="申请改为" width="180"><template #default="{row}">{{ row.requestedDate }} {{ row.requestedStart }}-{{ row.requestedEnd }}</template></el-table-column>
             <el-table-column prop="reason" label="原因" min-width="120" show-overflow-tooltip/>
             <el-table-column label="操作" width="160" align="center"><template #default="{row,$index}"><el-button size="small" type="success" @click="approveDeferred($index)">批准</el-button><el-button size="small" type="info" @click="dismissDeferred($index)">已处理</el-button></template></el-table-column>
           </el-table>
@@ -251,7 +251,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Search, Plus, ArrowLeft, ArrowRight, Check, Calendar, Bell } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getStudents, createStudent, updateStudent, adjustHours as apiAdjustHours } from '@/api/common/students'
@@ -260,8 +260,8 @@ import { getTeacherStudentWrongQuestions } from '@/api/common/questions'
 // === 调课申请管理 ===
 const allRequests = ref([])
 const showRequests = ref(false); const reqTab = ref('pending'); const loadingReq = ref(false)
-const pendingRequests = computed(() => allRequests.value.filter(r=>r.status==='PENDING'))
-const deferredRequests = computed(() => allRequests.value.filter(r=>r.status==='DEFERRED'))
+const pendingRequests = computed(() => allRequests.value.filter(r=>r.status==='pending'))
+const deferredRequests = computed(() => allRequests.value.filter(r=>r.status==='deferred'))
 const pendingCount = computed(() => pendingRequests.value.length)
 
 async function loadReschedules() {
@@ -269,11 +269,15 @@ async function loadReschedules() {
   try {
     const { default: http } = await import('@/api/request')
     const res = await http.get('/teacher/reschedules', { params: { pageSize: 100 } })
-    allRequests.value = res.list || []
+    allRequests.value = res?.data ?? res ?? []
   } catch {}
   loadingReq.value = false
 }
 watch(showRequests, (v) => { if (v) loadReschedules() })
+onMounted(loadReschedules)
+let rescheduleTimer = null
+onMounted(() => { rescheduleTimer = setInterval(loadReschedules, 30000) })
+onUnmounted(() => { if (rescheduleTimer) clearInterval(rescheduleTimer) })
 
 async function approveRequest(idx) {
   const r = pendingRequests.value[idx]; if (!r) return

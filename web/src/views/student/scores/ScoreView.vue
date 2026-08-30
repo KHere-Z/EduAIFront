@@ -18,7 +18,7 @@
         <div class="scc-bottom">
           <div class="scc-stat">
             <span class="sccs-label">最近</span>
-            <span class="sccs-value" :style="{color:s.scoreColor(s.latest)}">{{ s.latest || '-' }}</span>
+            <span class="sccs-value" :style="{color:scoreColor(s.latest)}">{{ s.latest || '-' }}</span>
           </div>
           <div class="scc-stat">
             <span class="sccs-label">最高</span>
@@ -77,7 +77,7 @@ const subjectCards = computed(() => {
   exams.value.forEach(e => {
     const s = e.subject
     if (!map[s]) map[s] = []
-    if (e.score && !isNaN(+e.score)) map[s].push(+e.score)
+    if (e.score != null && !isNaN(+e.score)) map[s].push(+e.score)
   })
   return Object.entries(map).map(([s, scores]) => ({
     subject:s, name:subjMap[s]||s, icon:icons[s]||'📚',
@@ -89,7 +89,7 @@ const subjectCards = computed(() => {
 const subjectExams = computed(() => exams.value.filter(e=>e.subject===currentSubject.value).sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||'')))
 
 // 图表
-const chartData = computed(() => subjectExams.value.filter(e=>e.score&&!isNaN(+e.score)).map(e=>({
+const chartData = computed(() => subjectExams.value.filter(e=>e.score!=null&&!isNaN(+e.score)).map(e=>({
   label:(e.examType||'')+'\n'+(e.createdAt||'').slice(5),
   score:+e.score
 })))
