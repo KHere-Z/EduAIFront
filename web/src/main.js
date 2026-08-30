@@ -1,3 +1,5 @@
+// 日志采集器：必须在最顶部 import（副作用式覆盖 console，生产环境拦截并上报）
+import './utils/logger'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { ElLoading } from 'element-plus'

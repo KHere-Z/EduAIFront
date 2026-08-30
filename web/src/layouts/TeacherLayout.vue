@@ -5,6 +5,7 @@
       <nav class="sidebar-nav">
         <el-menu :default-active="activeMenu" router>
           <el-menu-item index="/teacher/dashboard"><el-icon><DataAnalysis /></el-icon>工作台</el-menu-item>
+          <el-menu-item index="/teacher/messages"><el-icon><Bell /></el-icon>消息<span v-if="unreadCount" class="tl-unread">{{ unreadCount > 99 ? '99+' : unreadCount }}</span></el-menu-item>
           <el-menu-item index="/teacher/students"><el-icon><User /></el-icon>学生信息</el-menu-item>
           <el-sub-menu index="manage">
             <template #title><el-icon><EditPen /></el-icon>学科管理</template>
@@ -34,12 +35,18 @@
   </div>
 </template>
 <script setup>
-import { computed, ref, onMounted } from 'vue'; import { useRoute, useRouter } from 'vue-router'; import { useAuthStore } from '@/store/auth'
+import { computed, ref, onMounted, onUnmounted } from 'vue'; import { useRoute, useRouter } from 'vue-router'; import { useAuthStore } from '@/store/auth'
 import { usePointsStore } from '@/store/points'
 import http from '@/api/request'
+import { getUnreadCount } from '@/api/common/messages'
 const route = useRoute(); const router = useRouter(); const auth = useAuthStore(); const activeMenu = computed(() => route.path)
 const pointsStore = usePointsStore()
+const unreadCount = ref(0)
+let unreadTimer = null
 onMounted(() => pointsStore.refresh())
+onMounted(() => { refreshUnread(); unreadTimer = setInterval(refreshUnread, 30000) })
+onUnmounted(() => { if (unreadTimer) clearInterval(unreadTimer) })
+async function refreshUnread() { try { const r = await getUnreadCount(); unreadCount.value = r?.count ?? r?.data?.count ?? 0 } catch {} }
 
 const zh2en = { '语文':'chinese','数学':'math','英语':'english','物理':'physics','化学':'chemistry','生物':'biology','历史':'history','政治':'politics','地理':'geography' }
 const icons = { '语文':'📝','数学':'📐','英语':'📖','物理':'⚛️','化学':'🧪','生物':'🧬','历史':'📜','政治':'⚖️','地理':'🌍' }
@@ -63,4 +70,5 @@ function logout() { auth.logout(); router.push('/login') }
 .sf-points:hover { background: linear-gradient(135deg, rgba(245,158,11,.25), rgba(251,191,36,.2)); }
 .sfp-label { font-size: 11px; color: var(--text-muted); display: block; }
 .sfp-num { font-size: 22px; font-weight: 700; color: #F59E0B; }
+.tl-unread { display: inline-block; min-width: 16px; height: 16px; line-height: 16px; padding: 0 4px; margin-left: 6px; border-radius: 8px; background: #EF4444; color: #fff; font-size: 10px; text-align: center; font-weight: 600; }
 </style>

@@ -34,6 +34,7 @@ const routes = [
       { path: 'profile/:uid',component: () => import('@/views/profile/UserProfileView.vue'),          meta: { title: '用户主页' } },
       { path: 'recharge',    component: () => import('@/views/recharge/RechargeView.vue'),            meta: { title: '智学点充值' } },
       { path: 'revenue',     component: () => import('@/views/teacher/revenue/RevenueView.vue'),     meta: { title: '收益中心' } },
+      { path: 'messages',    component: () => import('@/views/teacher/messages/TeacherMessages.vue'), meta: { title: '消息中心' } },
       { path: 'feedback',    component: () => import('@/views/teacher/english/FeedbackView.vue'),    meta: { title: '学习反馈' } },
       { path: 'paper-reformat', component: () => import('@/views/teacher/paper/PaperReformat.vue'), meta: { title: 'PDF转Word' } },
       // 学科中心 — 动态路由 9 学科
@@ -45,6 +46,7 @@ const routes = [
       { path: 'subject/math/wrong-analysis', component: () => import('@/views/student/subject/WrongAnalysis.vue'), meta: { title: 'AI错题分析' } },
       { path: 'subject/math/exam-analysis',  component: () => import('@/views/student/subject/ExamAnalysis.vue'),  meta: { title: 'AI试卷分析' } },
       { path: 'subject/math/ai-animation',   component: () => import('@/views/student/subject/AIAnimation.vue'),   meta: { title: 'AI动图' } },
+      { path: 'subject/math/ai-animation-history', component: () => import('@/views/student/subject/AIAnimationHistory.vue'), meta: { title: '动图历史' } },
       { path: 'subject/math/resources',       component: () => import('@/views/student/subject/ResourcesView.vue'), meta: { title: '学习资源' } },
     ]
   },
@@ -65,6 +67,7 @@ const routes = [
       { path: 'subject/:subject/exam-analysis',    component: () => import('@/views/student/subject/ExamAnalysis.vue'),    meta: { title: 'AI试卷分析' } },
       { path: 'subject/:subject/question-bank',    component: () => import('@/views/student/subject/QuestionBank.vue'),    meta: { title: '题库' } },
       { path: 'subject/:subject/ai-animation',     component: () => import('@/views/student/subject/AIAnimation.vue'),     meta: { title: 'AI动图' } },
+      { path: 'subject/:subject/ai-animation-history', component: () => import('@/views/student/subject/AIAnimationHistory.vue'), meta: { title: '动图历史' } },
       { path: 'subject/:subject/knowledge-points', component: () => import('@/views/student/subject/KnowledgePoints.vue'), meta: { title: '知识点' } },
       { path: 'subject/:subject/knowledge-points/:kpId', component: () => import('@/views/student/subject/KpDetailView.vue'), meta: { title: '资源详情' } },
       { path: 'subject/:subject/homework',         component: () => import('@/views/student/subject/Homework.vue'),         meta: { title: '作业' } },
@@ -88,6 +91,7 @@ const routes = [
       { path: 'schedules', component: () => import('@/views/admin/teachers/ScheduleView.vue'),    meta: { title: '排课查看' } },
       { path: 'settings',  component: () => import('@/views/admin/settings/SettingsView.vue'),    meta: { title: '系统设置' } },
       { path: 'resources', component: () => import('@/views/admin/resources/ResourcesUploadView.vue'), meta: { title: '学习资源上传' } },
+      { path: 'resource-review', component: () => import('@/views/admin/resources/ResourceReviewView.vue'), meta: { title: '资源审核' } },
       { path: 'withdraws', component: () => import('@/views/admin/withdraws/WithdrawReviewView.vue'), meta: { title: '提现审核' } }
     ]
   },

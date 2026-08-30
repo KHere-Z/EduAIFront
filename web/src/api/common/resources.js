@@ -74,3 +74,11 @@ export function inspectArchive(file) {
   fd.append('file', file)
   return http.post('/resource/archive/inspect', fd)
 }
+
+// ---- 资源审核（管理员端） ----
+export function getPendingResources() {
+  return http.get('/resource/review/pending')
+}
+export function reviewResource(id, data) { // { approved, price?, reason? }
+  return http.post(`/resource/review/${id}`, data)
+}

@@ -42,7 +42,7 @@
               <input type="file" accept="image/*,.pdf" multiple hidden @change="onFileChange"/>
             </label>
             <el-input v-model="inputText" type="textarea" :rows="1" placeholder="描述试卷情况或直接粘贴图片…" :disabled="typing" resize="none" @keydown.enter.exact.prevent="send" @paste="onPaste" class="ci-input"/>
-            <span class="ci-cost" title="消耗10智学点">-10点</span>
+            <span class="ci-cost" title="消耗5智学点">-5点</span>
             <button class="ci-send" @click="send" :disabled="!canSend||typing">
               <span v-if="typing" class="spinner-sm"/>
               <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -82,7 +82,7 @@
           <div class="panel-topbar">
             <el-button text size="small" @click="closePanel">← 返回列表</el-button>
             <div class="panel-topright" v-if="!typing && !panelData.overview.includes('⏳')">
-              <div class="pinline-score">
+              <div class="pinline-score" v-if="!isTeacher">
                 <el-input v-model="studentScore" placeholder="分数" size="small" style="width:80px" :disabled="scoreSubmitted"/>
                 <el-button type="primary" size="small" @click="submitScore" :loading="scoreSaving" :disabled="scoreSubmitted">{{ scoreSubmitted ? '✅ 已提交' : '确定' }}</el-button>
               </div>
@@ -301,12 +301,12 @@ async function send() {
   try {
     const pts = await http.get('/user/points')
     const balance = pts?.points ?? pts?.data?.points ?? 0
-    if (balance < 10) {
-      await ElMessageBox.confirm(`智学点不足！当前余额 ${balance} 点，本次分析需消耗 10 点。是否前往充值？`, '智学点不足', { confirmButtonText:'去充值', cancelButtonText:'取消', type:'warning' })
+    if (balance < 5) {
+      await ElMessageBox.confirm(`智学点不足！当前余额 ${balance} 点，本次分析需消耗 5 点。是否前往充值？`, '智学点不足', { confirmButtonText:'去充值', cancelButtonText:'取消', type:'warning' })
         .then(() => router.push('/' + (route.path.startsWith('/teacher') ? 'teacher' : 'student') + '/recharge'))
       return
     }
-    await ElMessageBox.confirm(`本次 AI 试卷分析将消耗 10 智学点（当前余额 ${balance} 点），是否继续？`, '确认消耗', { confirmButtonText:'确认分析', cancelButtonText:'取消', type:'info' })
+    await ElMessageBox.confirm(`本次 AI 试卷分析将消耗 5 智学点（当前余额 ${balance} 点），是否继续？`, '确认消耗', { confirmButtonText:'确认分析', cancelButtonText:'取消', type:'info' })
   } catch (e) { if (e !== 'confirm') return }
 
   typing.value = true

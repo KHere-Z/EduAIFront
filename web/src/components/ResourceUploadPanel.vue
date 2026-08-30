@@ -180,6 +180,14 @@
         <el-table-column label="共享" width="80" align="center">
           <template #default="{ row }"><el-tag size="small" :type="isShared(row) ? 'success' : 'info'">{{ isShared(row) ? '共享' : '私有' }}</el-tag></template>
         </el-table-column>
+        <el-table-column label="审核状态" width="90" align="center">
+          <template #default="{ row }">
+            <el-tooltip v-if="statusOf(row) === 'rejected'" :content="row.rejectReason || '已驳回'" placement="top">
+              <el-tag size="small" type="danger">{{ statusLabel(row) }}</el-tag>
+            </el-tooltip>
+            <el-tag v-else size="small" :type="statusType(row)">{{ statusLabel(row) }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="资源点" width="90" align="center">
           <template #default="{ row }"><span style="color:#6366F1;font-weight:600">{{ row.price ?? 0 }}</span></template>
         </el-table-column>
@@ -259,8 +267,9 @@ const props = defineProps({
   subject: { type: String, default: 'math' },
   selectableSubject: { type: Boolean, default: false },
   priceMode: { type: String, default: 'tier' }, // 'fixed' | 'tier'
-  fixedPrice: { type: Number, default: 200 },
+  fixedPrice: { type: Number, default: 20 },
   allowAdd: { type: Boolean, default: false }, // 是否允许新增教材/章节/小节
+  requireReview: { type: Boolean, default: false }, // 老师端上传需管理员审核
 })
 
 const subjects = [
@@ -276,9 +285,9 @@ const subjects = [
 ]
 const years = ['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018']
 const priceTiers = [
-  { label: '普通', price: 100 },
-  { label: '较好', price: 300 },
-  { label: '精品', price: 500 },
+  { label: '普通', price: 10 },
+  { label: '较好', price: 30 },
+  { label: '精品', price: 50 },
 ]
 const versionMap = { suke: '苏科版', renjiao: '人教版', bsd: '北师大版', zj: '浙教版', hk: '沪科版' }
 
@@ -307,7 +316,7 @@ const saving = ref(false)
 const resType = ref('课件')
 const resYear = ref('2026')
 const shared = ref(true)
-const price = ref(props.priceMode === 'fixed' ? props.fixedPrice : 100)
+const price = ref(props.priceMode === 'fixed' ? props.fixedPrice : 10)
 const fileList = ref([])
 const uploading = ref(false)
 const resList = ref([])
@@ -508,6 +517,16 @@ function isShared(row) {
   const v = row.shared
   return v === true || v === 'true' || v === 1 || v === '1'
 }
+// 审核状态：空值视为已通过（管理员直传 / 存量数据）
+function statusOf(row) { return row.status || 'approved' }
+function statusLabel(row) {
+  const s = statusOf(row)
+  return s === 'pending' ? '待审核' : s === 'rejected' ? '已驳回' : '已通过'
+}
+function statusType(row) {
+  const s = statusOf(row)
+  return s === 'pending' ? 'warning' : s === 'rejected' ? 'danger' : 'success'
+}
 
 async function loadTextbooks() {
   const all = (await listTextbooks(subject.value)) || []
@@ -628,7 +647,7 @@ async function doUpload() {
   uploading.value = true
   try {
     await addResources(sectionId.value, subject.value, resType.value, resYear.value, price.value, shared.value, files, previewPaths)
-    ElMessage.success(`已上传 ${files.length} 个文件`)
+    ElMessage.success(props.requireReview ? '已提交，等待管理员审核' : `已上传 ${files.length} 个文件`)
     fileList.value = []
     previewMap.value = {}
     await loadResList()

@@ -88,10 +88,11 @@ const modelForm = reactive({ value:'', name:'', description:'', provider:'', api
 const aiFeatures = [
   { key:'wrong', icon:'🔬', label:'AI 错题分析', modelKey:'wrongAnalysisModel' },
   { key:'exam', icon:'📄', label:'AI 试卷分析', modelKey:'examAnalysisModel' },
+  { key:'animation', icon:'🎬', label:'AI 动图', modelKey:'animationModel' },
 ]
 
 const form = reactive({
-  wrongAnalysisModel:'', examAnalysisModel:'',
+  wrongAnalysisModel:'', examAnalysisModel:'', animationModel:'',
   systemName:'智学AI教育', maxConcurrency:10
 })
 
@@ -150,7 +151,8 @@ async function saveFeatures() {
   try {
     await updateAdminSettings({
       wrongAnalysisModel: form.wrongAnalysisModel,
-      examAnalysisModel: form.examAnalysisModel
+      examAnalysisModel: form.examAnalysisModel,
+      animationModel: form.animationModel
     })
     ElMessage.success('AI 功能配置已保存')
   } catch (e) { ElMessage.error(e.message||'保存失败') }
@@ -182,6 +184,7 @@ onMounted(async () => {
       }
       ensureOption(cfg.wrongAnalysisModel, cfg.wrongAnalysisModelName)
       ensureOption(cfg.examAnalysisModel, cfg.examAnalysisModelName)
+      ensureOption(cfg.animationModel, cfg.animationModelName)
       Object.assign(form, cfg)
     }
   } catch (e) { console.error('设置加载失败:', e) }
@@ -191,6 +194,9 @@ onMounted(async () => {
     if (!form.wrongAnalysisModel) form.wrongAnalysisModel = models.value[0]?.value || ''
     if (!form.examAnalysisModel) {
       form.examAnalysisModel = models.value.find(m => (m.value||'').includes('doubao'))?.value || models.value[0]?.value || ''
+    }
+    if (!form.animationModel) {
+      form.animationModel = models.value.find(m => (m.value||'').includes('doubao'))?.value || models.value[0]?.value || ''
     }
   }
 })
