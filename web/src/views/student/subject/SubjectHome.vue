@@ -52,7 +52,7 @@ const features=[
 .sc-emoji { font-size: 36px; }
 .sc-label { font-size: 15px; font-weight: 700; color: #333; }
 .sc-desc { font-size: 12px; color: #777; }
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .sub-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .s-card { padding: 16px 8px; }
   .sc-emoji { font-size: 26px; }

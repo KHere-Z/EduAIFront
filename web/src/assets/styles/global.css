@@ -197,6 +197,13 @@ a:hover { color: var(--color-primary-dark); }
 .sidebar-layout {
   display: flex; height: 100vh;
 }
+
+/* ===== 移动端全局适配 ===== */
+@media (max-width: 768px) {
+  /* 弹窗/确认框在窄屏自动收窄，避免固定 px 宽度溢出 */
+  .el-dialog { --el-dialog-width: 92% !important; }
+  .el-message-box { --el-messagebox-width: 92% !important; }
+}
 .sidebar {
   width: 240px; background: var(--color-surface);
   border-right: 1px solid var(--color-border);

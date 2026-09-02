@@ -79,4 +79,11 @@ onMounted(loadFeedbacks)
 .sfc-tags{display:flex;gap:6px;flex-shrink:0}
 
 .sfc-body{font-size:14px;line-height:1.9;color:var(--text-secondary);white-space:pre-wrap}
+
+/* 移动端：学科筛选按钮横向滚动，卡片标题标签换行 */
+@media (max-width: 640px) {
+  .sf-filter{overflow-x:auto;padding-bottom:4px}
+  .sf-filter .el-radio-group{flex-wrap:nowrap;white-space:nowrap}
+  .sfc-head{flex-direction:column;gap:8px}
+}
 </style>

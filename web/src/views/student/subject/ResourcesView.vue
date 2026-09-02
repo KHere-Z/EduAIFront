@@ -269,4 +269,12 @@ async function downloadRes(r) {
 .resli-tags{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}
 .resli-meta{font-size:11px;color:var(--text-muted)}
 .resli-right{flex-shrink:0;margin-left:12px}
+
+/* 移动端适配：侧边栏堆叠到顶部，列表项换行 */
+@media (max-width: 768px) {
+  .res-layout{flex-direction:column;padding:0 10px 40px;gap:10px}
+  .res-sidebar{width:100%;position:static;padding:12px}
+  .resl-item{flex-wrap:wrap}
+  .resli-right{margin-left:0;margin-top:8px}
+}
 </style>
