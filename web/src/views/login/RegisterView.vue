@@ -182,4 +182,11 @@ onMounted(() => {
 .rs-extra { margin-top: 20px; text-align: center; font-size: 13px; color: #64748B; }
 .rs-extra a { color: #818CF8; text-decoration: none; }
 .rs-copy { color: #334155; font-size: 12px; margin-top: 36px; }
+
+/* 移动端：隐藏左侧品牌区，只保留注册表单，收窄内边距 */
+@media (max-width: 768px) {
+  .brand-side { display: none; }
+  .reg-side { padding: 20px 16px; }
+  .rs-card { padding: 28px 20px 24px; }
+}
 </style>
