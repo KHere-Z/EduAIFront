@@ -67,14 +67,43 @@ export async function createSection(chapterId, data) {
 }
 
 // ---- 资源 ----
-export async function listResources(sectionId) {
-  return withFallback(() => api.getResources({ sectionId }), () => read(K.resources).filter(r => r.sectionId === sectionId))
+// 解析某节点的子级 id 集合（用于聚合查询与级联删除）
+function nodeScope(nodeType, nodeId) {
+  const chapters = read(K.chapters)
+  const sections = read(K.sections)
+  let chapterIds = [], sectionIds = []
+  if (nodeType === 'textbook') {
+    chapterIds = chapters.filter(c => c.textbookId === nodeId).map(c => c.id)
+    sectionIds = sections.filter(s => chapterIds.includes(s.chapterId)).map(s => s.id)
+  } else if (nodeType === 'chapter') {
+    sectionIds = sections.filter(s => s.chapterId === nodeId).map(s => s.id)
+  }
+  return { chapterIds, sectionIds }
 }
-export async function addResources(sectionId, subject, tag, year, price, shared, files, previewPaths = []) {
+
+// 资源是否属于某节点（含其子级），兼容旧 sectionId 存量数据
+function resMatches(res, nodeType, nodeId, scope) {
+  if (res.nodeType === nodeType && res.nodeId === nodeId) return true
+  if (res.nodeType === 'section' && scope.sectionIds.includes(res.nodeId)) return true
+  if (res.nodeType === 'chapter' && scope.chapterIds.includes(res.nodeId)) return true
+  if (res.sectionId != null && (nodeType === 'section' ? res.sectionId === nodeId : scope.sectionIds.includes(res.sectionId))) return true
+  return false
+}
+
+function collectResources(nodeType, nodeId) {
+  const scope = nodeScope(nodeType, nodeId)
+  return read(K.resources).filter(r => resMatches(r, nodeType, nodeId, scope))
+}
+
+export async function listResources(nodeType, nodeId) {
+  return withFallback(() => api.getResources({ nodeType, nodeId }), () => collectResources(nodeType, nodeId))
+}
+export async function addResources(nodeType, nodeId, subject, tag, year, price, shared, files, previewPaths = []) {
   return withFallback(
     () => {
       const fd = new FormData()
-      fd.append('sectionId', sectionId)
+      fd.append('nodeType', nodeType)
+      fd.append('nodeId', nodeId)
       fd.append('subject', subject)
       fd.append('tag', tag)
       fd.append('year', year)
@@ -92,7 +121,7 @@ export async function addResources(sectionId, subject, tag, year, price, shared,
         const f = files[i]
         const data = await fileToBase64(f)
         const item = {
-          id: uid(), sectionId, subject, type: tag, tag, year, price, shared,
+          id: uid(), nodeType, nodeId, subject, type: tag, tag, year, price, shared,
           title: f.name, fileName: f.name, fileSize: f.size,
           data, author: '管理员', createdAt: Date.now(),
           previewPath: previewPaths[i] || undefined,
@@ -108,29 +137,28 @@ export async function removeResource(id) {
   return withFallback(() => api.deleteResource(id), () => write(K.resources, read(K.resources).filter(r => r.id !== id)))
 }
 
-// 级联删除：教材 → 章节 → 小节 → 资源
+// 级联删除：教材 → 章节 → 小节 → 资源（直接挂本级 + 所有子级）
 export async function removeTextbook(id) {
   return withFallback(() => api.deleteTextbook(id), () => {
-    const chIds = read(K.chapters).filter(c => c.textbookId === id).map(c => c.id)
-    const secIds = read(K.sections).filter(s => chIds.includes(s.chapterId)).map(s => s.id)
+    const scope = nodeScope('textbook', id)
     write(K.textbooks, read(K.textbooks).filter(t => t.id !== id))
     write(K.chapters, read(K.chapters).filter(c => c.textbookId !== id))
-    write(K.sections, read(K.sections).filter(s => !chIds.includes(s.chapterId)))
-    write(K.resources, read(K.resources).filter(r => !secIds.includes(r.sectionId)))
+    write(K.sections, read(K.sections).filter(s => !scope.chapterIds.includes(s.chapterId)))
+    write(K.resources, read(K.resources).filter(r => !resMatches(r, 'textbook', id, scope)))
   })
 }
 export async function removeChapter(id) {
   return withFallback(() => api.deleteChapter(id), () => {
-    const secIds = read(K.sections).filter(s => s.chapterId === id).map(s => s.id)
+    const scope = nodeScope('chapter', id)
     write(K.chapters, read(K.chapters).filter(c => c.id !== id))
     write(K.sections, read(K.sections).filter(s => s.chapterId !== id))
-    write(K.resources, read(K.resources).filter(r => !secIds.includes(r.sectionId)))
+    write(K.resources, read(K.resources).filter(r => !resMatches(r, 'chapter', id, scope)))
   })
 }
 export async function removeSection(id) {
   return withFallback(() => api.deleteSection(id), () => {
     write(K.sections, read(K.sections).filter(s => s.id !== id))
-    write(K.resources, read(K.resources).filter(r => r.sectionId !== id))
+    write(K.resources, read(K.resources).filter(r => !resMatches(r, 'section', id, { chapterIds: [], sectionIds: [] })))
   })
 }
 

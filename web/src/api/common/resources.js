@@ -51,10 +51,10 @@ export function reorderChapters(orderedIds) { return http.put('/resource/chapter
 export function reorderSections(orderedIds) { return http.put('/resource/sections/reorder', { orderedIds }) }
 
 // ---- 资源 ----
-export function getResources(params) { // { sectionId, subject }
+export function getResources(params) { // { nodeType: textbook|chapter|section, nodeId, subject }，默认聚合子级
   return http.get('/resource/resources', { params })
 }
-// FormData: sectionId, subject, tag(课件/学案/作业/试卷), year(年份), price(资源点), files[](多文件)
+// FormData: nodeType, nodeId, subject, tag(课件/学案/作业/试卷), year(年份), price(资源点), files[](多文件)
 export function uploadResources(formData) {
   return http.post('/resource/resources/upload', formData)
 }
