@@ -136,6 +136,28 @@
       </el-col>
     </el-row>
 
+    <!-- 排课信息表格 -->
+    <el-card class="mb-lg">
+      <template #header>
+        <div class="card-head">
+          <span class="card-title">📋 排课信息</span>
+          <el-button size="small" type="success" @click="exportScheduleExcel">📥 导出Excel</el-button>
+        </div>
+      </template>
+      <div class="filter-bar mb-lg">
+        <el-date-picker v-model="schedDateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" style="width:260px"/>
+        <el-select v-model="schedSubjectFilter" multiple collapse-tags placeholder="学科（多选）" clearable style="width:180px"><el-option v-for="s in subjectList" :key="s" :label="s" :value="s"/></el-select>
+        <el-select v-model="schedStudentFilter" multiple collapse-tags filterable placeholder="学生（多选）" clearable style="width:200px"><el-option v-for="s in students" :key="s.id" :label="s.name" :value="s.id"/></el-select>
+      </div>
+      <el-table :data="scheduleRows" stripe size="small">
+        <el-table-column prop="studentName" label="学生" width="100"/>
+        <el-table-column prop="subject" label="学科" width="90" align="center"/>
+        <el-table-column prop="date" label="上课日期" width="120" align="center"/>
+        <el-table-column label="时间段" min-width="120" align="center"><template #default="{row}">{{ row.start }} - {{ row.end }}</template></el-table-column>
+      </el-table>
+      <el-empty v-if="!scheduleRows.length" description="暂无排课信息" :image-size="80"/>
+    </el-card>
+
     <!-- 排课弹窗 -->
     <el-dialog v-model="showForm" title="排课" width="760px" destroy-on-close>
       <el-form :model="form" label-width="80px" label-position="right">
@@ -603,6 +625,56 @@ const calendarCells = computed(() => {
 })
 function selectDate(d){selectedDate.value=d}
 const selectedSessions=computed(()=>selectedDate.value?allSessions.value.filter(x=>x.session.date===selectedDate.value):[])
+
+// ===== 排课信息表格 =====
+const schedDateRange = ref([])       // [start, end]
+const schedSubjectFilter = ref([])   // 多选学科
+const schedStudentFilter = ref([])   // 多选学生
+
+const scheduleRows = computed(() => {
+  let rows = allSessions.value.map(x => ({
+    studentName: x.student.name,
+    subject: x.enr.subject,
+    date: x.session.date,
+    start: x.session.start,
+    end: x.session.end,
+    _date: x.session.date || ''
+  }))
+  if (schedSubjectFilter.value.length) rows = rows.filter(r => schedSubjectFilter.value.includes(r.subject))
+  if (schedStudentFilter.value.length) rows = rows.filter(r => {
+    // 用学生名匹配（allSessions 里学生对象没有直接挂 id，改为 name 定位）
+    const s = students.value.find(s => s.name === r.studentName)
+    return s && schedStudentFilter.value.includes(s.id)
+  })
+  if (schedDateRange.value?.length === 2) {
+    const [start, end] = schedDateRange.value
+    rows = rows.filter(r => r._date >= start && r._date <= end)
+  }
+  return rows.sort((a, b) => (a._date || '').localeCompare(b._date || ''))
+})
+
+function exportScheduleExcel() {
+  const rows = scheduleRows.value
+  if (!rows.length) { ElMessage.warning('暂无排课数据可导出'); return }
+  // 零依赖导出：生成 HTML table 转 .xls，Excel 可直接打开，中文不乱码
+  const header = ['学生', '学科', '上课日期', '时间段']
+  const esc = (v) => String(v ?? '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))
+  let html = '<table border="1"><tr>' + header.map(h => `<th>${h}</th>`).join('') + '</tr>'
+  for (const r of rows) {
+    html += `<tr><td>${esc(r.studentName)}</td><td>${esc(r.subject)}</td><td>${esc(r.date)}</td><td>${esc(r.start + ' - ' + r.end)}</td></tr>`
+  }
+  html += '</table>'
+  const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `排课信息_${new Date().toISOString().slice(0,10)}.xls`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  ElMessage.success('已导出')
+}
 </script>
 
 <style scoped>

@@ -11,7 +11,7 @@
         <el-table :data="pagedKps" stripe size="small" @selection-change="kpSelection=$event">
           <el-table-column type="selection" width="40" :selectable="isOwnKp"/>
           <el-table-column prop="name" label="知识点" min-width="160"/><el-table-column prop="gradeLevel" label="年级·学期" width="130" align="center"/>
-          <el-table-column label="资源" width="90" align="center"><template #default="{row}"><el-button size="small" type="success" plain @click="$router.push('/teacher/subject/math/kp-resources/'+row.id)">{{ isOwnKp(row) ? '📎 管理' : '👀 查看' }}{{ getKpResCount(row.id) ? ' ('+getKpResCount(row.id)+')' : '' }}</el-button></template></el-table-column>
+          <el-table-column label="知识点描述" min-width="200" show-overflow-tooltip><template #default="{row}">{{ row.description || '-' }}</template></el-table-column>
           <el-table-column label="操作" width="120" align="center"><template #default="{row}"><template v-if="isOwnKp(row)"><el-button size="small" text type="primary" @click="openKpForm(row)">编辑</el-button><el-button size="small" text type="danger" @click="delKp(row)">删除</el-button></template><el-tag v-else size="small" type="info" effect="plain">同事·只读</el-tag></template></el-table-column>
         </el-table>
         <div class="mt-lg" style="text-align:right"><el-pagination v-model:current-page="kpPage" :page-size="15" :total="filteredKps.length" layout="total, prev, pager, next" background/></div>
@@ -236,7 +236,7 @@
     </el-dialog>
 
     <el-dialog v-model="showKpForm" :title="editingKp?'编辑知识点':'新增知识点'" width="450px">
-      <el-form :model="kpForm" label-width="80px"><el-form-item label="名称"><el-input v-model="kpForm.name"/></el-form-item><el-form-item label="年级"><el-select v-model="kpForm.gradeLevel" style="width:100%"><el-option v-for="g in grades" :key="g" :label="g" :value="g"/></el-select></el-form-item></el-form>
+      <el-form :model="kpForm" label-width="80px"><el-form-item label="名称"><el-input v-model="kpForm.name"/></el-form-item><el-form-item label="年级"><el-select v-model="kpForm.gradeLevel" style="width:100%"><el-option v-for="g in grades" :key="g" :label="g" :value="g"/></el-select></el-form-item><el-form-item label="描述"><el-input v-model="kpForm.description" type="textarea" :rows="3" placeholder="知识点描述（可选）"/></el-form-item></el-form>
       <template #footer><el-button @click="showKpForm=false">取消</el-button><el-button type="primary" @click="saveKp">保存</el-button></template>
     </el-dialog>
 
@@ -268,7 +268,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { Search, Plus, Camera } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getKnowledgePoints, createKnowledgePoint, updateKnowledgePoint, deleteKnowledgePoint, getKpResources } from '@/api/common/knowledge'
+import { getKnowledgePoints, createKnowledgePoint, updateKnowledgePoint, deleteKnowledgePoint } from '@/api/common/knowledge'
 import http from '@/api/request'
 
 function imgUrl(url) {
@@ -314,23 +314,13 @@ const tab = ref('kp')
 
 const grades = ['三年级·上学期','三年级·下学期','四年级·上学期','四年级·下学期','五年级·上学期','五年级·下学期','六年级·上学期','六年级·下学期','初一·上学期','初一·下学期','初二·上学期','初二·下学期','初三·上学期','初三·下学期','高一·上学期','高一·下学期','高二·上学期','高二·下学期','高三·上学期','高三·下学期']
 const showKpForm = ref(false); const editingKp = ref(null); const kpGradeFilter = ref(''); const kpPage = ref(1); const kpSelection = ref([])
-const kpResCounts = reactive({})
-
-async function loadKpResources() {
-  if (!kps.value.length) return
-  for (const kp of kps.value) {
-    try { const r = await getKpResources(kp.id); kpResCounts[kp.id] = (r?.length||0) } catch { kpResCounts[kp.id] = 0 }
-  }
-}
-function getKpResCount(kpId) { return kpResCounts[kpId] || 0 }
-
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + 'B'
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB'
   return (bytes / (1024 * 1024)).toFixed(1) + 'MB'
 }
 const qSelection = ref([])
-const kpForm = reactive({ name:'', gradeLevel:'', subject:'math' })
+const kpForm = reactive({ name:'', gradeLevel:'', subject:'math', description:'' })
 const kps = ref([])
 
 async function loadKps() { try { const r = await getKnowledgePoints({ subject:'math', pageSize:200 }); kps.value = r.list||[] } catch {} }
@@ -525,13 +515,13 @@ function fileToBase64(input) {
     else { resolve(input) }
   })
 }
-onMounted(async () => { loadKpResources(); loadKps(); loadQuestions(); loadExams(); loadHw(); try { const r = await getTeacherMathStudents(); studentList.value = Array.isArray(r) ? r : (r?.data ?? []) } catch {} })
+onMounted(async () => { loadKps(); loadQuestions(); loadExams(); loadHw(); try { const r = await getTeacherMathStudents(); studentList.value = Array.isArray(r) ? r : (r?.data ?? []) } catch {} })
 const filteredKps=computed(()=>kps.value.filter(k=>!kpGradeFilter.value||k.gradeLevel===kpGradeFilter.value))
 const pagedKps=computed(()=>{const s=(kpPage.value-1)*15;return filteredKps.value.slice(s,s+15)})
-function openKpForm(row){ editingKp.value=row||null; kpForm.name=row?.name||''; kpForm.gradeLevel=row?.gradeLevel||''; showKpForm.value=true }
+function openKpForm(row){ editingKp.value=row||null; kpForm.name=row?.name||''; kpForm.gradeLevel=row?.gradeLevel||''; kpForm.description=row?.description||''; showKpForm.value=true }
 async function saveKp(){ if(!kpForm.name) return ElMessage.warning('请输入名称')
     try { if(editingKp.value){ await updateKnowledgePoint(editingKp.value.id, kpForm); ElMessage.success('已更新') }
-    else { await createKnowledgePoint({ subject:"math", name:kpForm.name, gradeLevel:kpForm.gradeLevel }); ElMessage.success('已添加') };   showKpForm.value=false; loadKps() } catch(e) { ElMessage.error(e.message||"保存失败") }
+    else { await createKnowledgePoint({ subject:"math", name:kpForm.name, gradeLevel:kpForm.gradeLevel, description:kpForm.description }); ElMessage.success('已添加') };   showKpForm.value=false; loadKps() } catch(e) { ElMessage.error(e.message||"保存失败") }
 }
 async function delKp(row){ await ElMessageBox.confirm("删除","确认",{type:"warning"}); try { await deleteKnowledgePoint(row.id); loadKps(); kpSelection.value=[]; ElMessage.success("已删除") } catch(e) { ElMessage.error(e.message||"失败") } }
 async function batchDelKps(){ if(!kpSelection.value.length)return; await ElMessageBox.confirm(`确认删除${kpSelection.value.length}个知识点？`,"批量删除",{type:"warning"}); try { for(const k of kpSelection.value){ await deleteKnowledgePoint(k.id) }; loadKps(); kpSelection.value=[]; ElMessage.success("已删除") } catch(e) { ElMessage.error(e.message||"失败") } }

@@ -29,17 +29,20 @@
 
         <el-form :model="form" :rules="rules" ref="formRef" @submit.prevent="handleRegister" autocomplete="off">
           <el-form-item prop="username">
-            <el-input v-model="form.username" placeholder="用户名" size="large" class="reg-input" autocomplete="off"/>
+            <el-input v-model="form.username" placeholder="请输入用户名" size="large" class="reg-input" autocomplete="off"/>
+          </el-form-item>
+          <el-form-item prop="realName">
+            <el-input v-model="form.realName" placeholder="请输入昵称" size="large" class="reg-input" autocomplete="off"/>
           </el-form-item>
           <el-form-item prop="password">
-            <el-input v-model="form.password" placeholder="密码" type="password" size="large" show-password class="reg-input" autocomplete="new-password"/>
+            <el-input v-model="form.password" placeholder="请输入密码" type="password" size="large" show-password class="reg-input" autocomplete="new-password"/>
           </el-form-item>
           <el-form-item prop="phone">
-            <el-input v-model="form.phone" placeholder="手机号" size="large" class="reg-input" maxlength="11"/>
+            <el-input v-model="form.phone" placeholder="请输入手机号" size="large" class="reg-input" maxlength="11"/>
           </el-form-item>
           <el-form-item>
             <div style="display:flex;gap:8px">
-              <el-input v-model="smsCode" placeholder="验证码" size="large" class="reg-input" maxlength="6" style="flex:1"/>
+              <el-input v-model="smsCode" placeholder="请输入验证码" size="large" class="reg-input" maxlength="6" style="flex:1"/>
               <el-button size="large" @click="sendCode" :disabled="!form.phone||sending||countdown>0" class="sms-btn">
                 {{ countdown > 0 ? countdown+'s' : sending ? '…' : '获取验证码' }}
               </el-button>
@@ -71,9 +74,10 @@ const formRef = ref(null)
 const smsCode = ref('')
 const countdown = ref(0)
 
-const form = reactive({ username: '', password: '', phone: '' })
+const form = reactive({ username: '', realName: '', password: '', phone: '' })
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  realName: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
   phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
 }
@@ -101,7 +105,7 @@ async function handleRegister() {
   loading.value = true
   try {
     await register({
-      username: form.username, password: form.password,
+      username: form.username, realName: form.realName, password: form.password,
       phone: form.phone, code: smsCode.value,
       roleType: role.value==='teacher'?3:4
     })

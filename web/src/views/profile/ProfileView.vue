@@ -15,9 +15,11 @@
         </div>
         <div class="pfc-info">
           <div class="pfci-row"><span class="pfci-label">用户名</span><span>{{ user?.username || '-' }}</span></div>
-          <div class="pfci-row"><span class="pfci-label">姓名</span><span>{{ user?.nickname || user?.realName || '-' }}</span></div>
+          <div class="pfci-row"><span class="pfci-label">昵称</span><span>{{ user?.nickname || user?.realName || '-' }}</span></div>
           <div class="pfci-row"><span class="pfci-label">UID</span><span class="pfci-uid">{{ uidDisplay }}</span><el-button size="small" text @click="copyUid" style="margin-left:4px">📋</el-button></div>
           <div class="pfci-row"><span class="pfci-label">角色</span><span>{{ roleLabel }}</span></div>
+          <div class="pfci-row" v-if="isStudent"><span class="pfci-label">年级</span><el-select v-model="editGrade" size="small" style="width:160px" @change="saveGrade"><el-option v-for="g in grades" :key="g" :label="g" :value="g"/></el-select></div>
+          <div class="pfci-row" v-if="isStudent"><span class="pfci-label">学校</span><el-input v-model="editSchool" size="small" style="width:160px" placeholder="学校名称" @blur="saveSchool" @keyup.enter="saveSchool"/></div>
           <div class="pfci-row" v-if="isTeacher"><span class="pfci-label">简介</span><span class="pfci-bio" contenteditable @blur="saveBio" @keydown.enter.prevent>{{ editBio || '点击填写个人简介…' }}</span></div>
         </div>
       </div>
@@ -120,6 +122,7 @@ import { uploadAvatar } from '@/api/common/auth'
 const auth = useAuthStore()
 const user = computed(() => auth.user)
 const isTeacher = computed(() => auth.isTeacher)
+const isStudent = computed(() => auth.isStudent)
 const roleLabel = computed(() => isTeacher.value ? '老师' : auth.isStudent ? '学生' : '管理员')
 const userInitial = computed(() => (user.value?.realName || '用')[0])
 const avatarColor = computed(() => hashColor(user.value?.realName || 'User'))
@@ -131,7 +134,10 @@ const uidDisplay = computed(() => {
 })
 
 const allSubjects = ['数学','语文','英语','物理','化学','生物','历史','政治','地理']
+const grades = ['一年级','二年级','三年级','四年级','五年级','六年级','初一','初二','初三','高一','高二','高三']
 const editSubjects = ref([])
+const editGrade = ref('')
+const editSchool = ref('')
 const editBio = ref('')
 const saving = ref(false)
 const addUid = ref('')
@@ -165,7 +171,7 @@ async function handleAvatarSaved(blob) {
 }
 
 async function loadProfile() {
-  try { const r = await http.get('/auth/me'); editSubjects.value = r?.subjects || []; editBio.value = r?.bio || '' } catch {}
+  try { const r = await http.get('/auth/me'); editSubjects.value = r?.subjects || []; editBio.value = r?.bio || ''; editGrade.value = r?.grade || ''; editSchool.value = r?.school || '' } catch {}
   try { const r = await http.get('/relations', { params: { type: 'teacher_student' } }); relations.value = r?.list || r || [] } catch {}
   try { const r = await http.get('/relations/incoming', { params: { type: 'teacher_student' } }); incoming.value = r?.list || r || [] } catch {}
   try { const r = await http.get('/relations', { params: { type: 'colleague' } }); colleagues.value = r?.list || r || [] } catch {}
@@ -174,6 +180,24 @@ async function loadProfile() {
 
 async function saveBio(e) {
   try { await http.put('/auth/profile', { bio: e.target.innerText }); editBio.value = e.target.innerText } catch {}
+}
+
+async function saveGrade(g) {
+  try {
+    await http.put('/auth/profile', { grade: g })
+    auth.setUser({ ...(auth.user || {}), grade: g })
+    ElMessage.success('年级已保存')
+  } catch { ElMessage.error('保存失败') }
+}
+
+async function saveSchool() {
+  const s = (editSchool.value || '').trim()
+  if (!s) return
+  try {
+    await http.put('/auth/profile', { school: s })
+    auth.setUser({ ...(auth.user || {}), school: s })
+    ElMessage.success('学校已保存')
+  } catch { ElMessage.error('保存失败') }
 }
 
 async function saveSubjects() {
