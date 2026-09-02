@@ -282,4 +282,12 @@ onBeforeUnmount(() => cancelAnimationFrame(animId))
 .ls-register { color: #64748B; font-size: 13px; text-decoration: none; }
 .ls-register:hover { color: #818CF8; }
 .ls-copy { color: #334155; font-size: 12px; margin-top: 36px; }
+
+/* 移动端：隐藏左侧品牌区，只保留登录表单，收窄内边距 */
+@media (max-width: 768px) {
+  .brand-side { display: none; }
+  .login-side { padding: 20px 16px; }
+  .ls-card { padding: 28px 20px 24px; }
+  .bi-logo { font-size: 36px; }
+}
 </style>
