@@ -7,7 +7,6 @@
           <el-menu-item index="/admin/dashboard"><el-icon><DataAnalysis /></el-icon>管理概览</el-menu-item>
           <el-menu-item index="/admin/students"><el-icon><User /></el-icon>学生管理</el-menu-item>
           <el-menu-item index="/admin/teachers"><el-icon><Avatar /></el-icon>老师管理</el-menu-item>
-          <el-menu-item index="/admin/schedules"><el-icon><Calendar /></el-icon>排课查看</el-menu-item>
           <el-menu-item index="/admin/resources"><el-icon><FolderOpened /></el-icon>学习资源上传</el-menu-item>
           <el-menu-item index="/admin/resource-review"><el-icon><Check /></el-icon>资源审核</el-menu-item>
           <!-- 提现审核暂隐藏：收益已转为智学点，后续开放提现时再恢复

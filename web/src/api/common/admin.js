@@ -13,11 +13,9 @@ export function createAdminTeacher(data)     { return http.post('/admin/teachers
 export function updateAdminTeacher(id, data) { return http.put(`/admin/teachers/${id}`, data) }
 export function deleteAdminTeacher(id)       { return http.delete(`/admin/teachers/${id}`) }
 
-// === 排课查看 ===
-export function getAdminSchedules(params)    { return http.get('/admin/schedules', { params }) }
-
 // === 概览统计 ===
 export function getAdminStats()              { return http.get('/admin/stats') }
+export function getAdminRealtimeStats()      { return http.get('/admin/stats/realtime') }
 
 // === 老师学生 ===
 export function getTeacherMathStudents()     { return http.get('/teacher/math-students') }
