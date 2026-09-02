@@ -94,9 +94,9 @@
     </el-card>
 
     <!-- ② 上传 -->
-    <el-card class="rup-card" shadow="never" v-if="sectionId">
+    <el-card class="rup-card" shadow="never" v-if="currentNode">
       <template #header>
-        <span class="rup-title">② 上传文件到「{{ sectionName }}」</span>
+        <span class="rup-title">② 上传文件到「{{ currentNode.name }}」</span>
         <span class="rup-loc">{{ locText }}</span>
       </template>
 
@@ -167,8 +167,8 @@
     </el-card>
 
     <!-- ③ 已上传资源 -->
-    <el-card class="rup-card" shadow="never" v-if="sectionId">
-      <template #header><span class="rup-title">③ 本小节已上传资源（{{ resList.length }}）</span></template>
+    <el-card class="rup-card" shadow="never" v-if="currentNode">
+      <template #header><span class="rup-title">③ 本级已上传资源（{{ resList.length }}）</span></template>
       <el-table :data="resList" size="small" v-if="resList.length">
         <el-table-column prop="fileName" label="文件名" min-width="180" show-overflow-tooltip />
         <el-table-column prop="type" label="类型" width="80">
@@ -503,6 +503,13 @@ const textbookName = computed(() => textbooks.value.find(t => t.id === textbookI
 const chapterName = computed(() => chapters.value.find(c => c.id === chapterId.value)?.name || '')
 const sectionName = computed(() => sections.value.find(s => s.id === sectionId.value)?.name || '')
 const locText = computed(() => `${subjectLabel.value} / ${textbookName.value} / ${chapterName.value} / ${sectionName.value}`)
+// 当前选中的最深层级节点：教材/章节/小节均可上传、查看资源
+const currentNode = computed(() =>
+  sectionId.value ? { type: 'section', id: sectionId.value, name: sectionName.value }
+  : chapterId.value ? { type: 'chapter', id: chapterId.value, name: chapterName.value }
+  : textbookId.value ? { type: 'textbook', id: textbookId.value, name: textbookName.value }
+  : null
+)
 
 function fmtSize(n) {
   if (!n && n !== 0) return '-'
@@ -534,7 +541,7 @@ async function loadTextbooks() {
 }
 async function loadChapters() { chapters.value = textbookId.value ? await listChapters(textbookId.value) : [] }
 async function loadSections() { sections.value = chapterId.value ? await listSections(chapterId.value) : [] }
-async function loadResList() { resList.value = sectionId.value ? await listResources(sectionId.value) : [] }
+async function loadResList() { const n = currentNode.value; resList.value = n ? await listResources(n.type, n.id) : [] }
 
 function resetAll() {
   version.value = ''
@@ -565,8 +572,9 @@ function onTextbookChange() {
   sections.value = []
   resList.value = []
   loadChapters()
+  loadResList()
 }
-function onChapterChange() { sectionId.value = ''; resList.value = []; loadSections() }
+function onChapterChange() { sectionId.value = ''; resList.value = []; loadSections(); loadResList() }
 function onSectionChange() { loadResList() }
 
 function startAdd(level) {
@@ -646,7 +654,7 @@ async function doUpload() {
   if (!files.length) return
   uploading.value = true
   try {
-    await addResources(sectionId.value, subject.value, resType.value, resYear.value, price.value, shared.value, files, previewPaths)
+    await addResources(currentNode.value.type, currentNode.value.id, subject.value, resType.value, resYear.value, price.value, shared.value, files, previewPaths)
     ElMessage.success(props.requireReview ? '已提交，等待管理员审核' : `已上传 ${files.length} 个文件`)
     fileList.value = []
     previewMap.value = {}

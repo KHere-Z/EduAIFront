@@ -78,7 +78,7 @@
               </div>
             </div>
           </div>
-          <el-empty v-else :description="currentSectionId ? '本小节暂无资源' : '请在左侧目录中选择一个小节查看资源'" :image-size="80"/>
+          <el-empty v-else :description="currentNode ? '本级暂无资源' : '请在左侧目录中选择节点查看资源'" :image-size="80"/>
         </div>
       </main>
     </div>
@@ -124,7 +124,7 @@ const yearOptions = ['2026', '2025', '2024', '2023', '2022', '2021', '2020', '20
 const resList = ref([])
 const resRaw = ref([]) // 当前小节的完整资源列表（未过滤）
 const resTotal = ref(0)
-const currentSectionId = ref('')
+const currentNode = ref(null)
 const currentLoc = ref([])
 
 // el-tree 懒加载：教材 → 章节 → 小节
@@ -148,8 +148,13 @@ function loadNode(node, resolve) {
 }
 
 function onTreeClick(data, node) {
-  if (!data || !data.sectionId) return
-  currentSectionId.value = data.sectionId
+  if (!data) return
+  let type, id
+  if (data.sectionId) { type = 'section'; id = data.sectionId }
+  else if (data.chapterId) { type = 'chapter'; id = data.chapterId }
+  else if (data.textbookId) { type = 'textbook'; id = data.textbookId }
+  else return
+  currentNode.value = { type, id }
   const crumbs = []
   let n = node
   while (n) {
@@ -161,8 +166,9 @@ function onTreeClick(data, node) {
 }
 
 async function loadResList() {
-  if (!currentSectionId.value) { resRaw.value = []; resList.value = []; resTotal.value = 0; return }
-  resRaw.value = (await listResources(currentSectionId.value)) || []
+  const node = currentNode.value
+  if (!node) { resRaw.value = []; resList.value = []; resTotal.value = 0; return }
+  resRaw.value = (await listResources(node.type, node.id)) || []
   applyFilter()
 }
 
