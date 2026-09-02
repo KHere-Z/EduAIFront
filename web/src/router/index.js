@@ -87,7 +87,6 @@ const routes = [
       { path: 'dashboard', component: () => import('@/views/admin/dashboard/DashboardView.vue'),   meta: { title: '管理后台' } },
       { path: 'students',  component: () => import('@/views/admin/students/StudentsView.vue'),    meta: { title: '学生管理' } },
       { path: 'teachers',  component: () => import('@/views/admin/teachers/TeachersView.vue'),    meta: { title: '老师管理' } },
-      { path: 'schedules', component: () => import('@/views/admin/teachers/ScheduleView.vue'),    meta: { title: '排课查看' } },
       { path: 'settings',  component: () => import('@/views/admin/settings/SettingsView.vue'),    meta: { title: '系统设置' } },
       { path: 'resources', component: () => import('@/views/admin/resources/ResourcesUploadView.vue'), meta: { title: '学习资源上传' } },
       { path: 'resource-review', component: () => import('@/views/admin/resources/ResourceReviewView.vue'), meta: { title: '资源审核' } },

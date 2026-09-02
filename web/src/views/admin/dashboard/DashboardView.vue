@@ -44,7 +44,6 @@ const realtimeStats = computed(() => [
 const actions = [
   { text:'学生管理', icon:'User', path:'/admin/students', bg:'#EEF2FF' },
   { text:'老师管理', icon:'Avatar', path:'/admin/teachers', bg:'#ECFDF5' },
-  { text:'排课查看', icon:'Calendar', path:'/admin/schedules', bg:'#FFF7ED' },
   { text:'系统设置', icon:'SetUp', path:'/admin/settings', bg:'#FEF2F2' }
 ]
 </script>

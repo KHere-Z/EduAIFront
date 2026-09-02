@@ -10,7 +10,6 @@
           <div class="teacher-footer">
             <span>{{ t.studentCount }}名学生 · {{ t.totalHours }}课时</span>
             <div>
-              <el-button size="small" text type="primary" @click.stop="$router.push(`/admin/schedules?teacherId=${t.userId}`)">排课</el-button>
               <el-button size="small" text type="primary" @click.stop="editTeacher(t)">编辑</el-button>
               <el-button size="small" text type="danger" @click.stop="del(t)">删除</el-button>
             </div>
