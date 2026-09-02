@@ -1,22 +1,23 @@
 <template>
   <div class="page-container">
     <div class="page-header"><div><h2>👨‍🏫 老师管理</h2><p>老师信息 · 学科 · 学生数</p></div><el-button type="primary" @click="openAdd"><el-icon><Plus /></el-icon>新增老师</el-button></div>
-    <div class="mb-lg"><el-input v-model="search" placeholder="搜索姓名/学科..." :prefix-icon="Search" style="width:260px" clearable /></div>
-    <el-row :gutter="16">
-      <el-col :span="8" v-for="t in teachers" :key="t.userId">
-        <el-card shadow="hover" class="teacher-card">
-          <div class="teacher-top" @click="showDetail(t)"><div class="teacher-avatar">{{ t.realName?.[0] }}</div><div><h3>{{ t.realName }}</h3><span class="teacher-title">{{ t.title||'未设置' }}</span></div></div>
-          <div class="teacher-subjects" @click="showDetail(t)"><el-tag v-for="s in (t.subjects||[])" :key="s" size="small" style="margin:2px">{{ s }}</el-tag></div>
-          <div class="teacher-footer">
-            <span>{{ t.studentCount }}名学生 · {{ t.totalHours }}课时</span>
-            <div>
-              <el-button size="small" text type="primary" @click.stop="editTeacher(t)">编辑</el-button>
-              <el-button size="small" text type="danger" @click.stop="del(t)">删除</el-button>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <div class="mb-lg"><el-input v-model="search" placeholder="搜索姓名/用户名/手机号..." :prefix-icon="Search" style="width:260px" clearable @keyup.enter="onSearch" @clear="onSearch"/></div>
+    <el-card>
+      <el-table :data="teachers" stripe size="small" v-loading="loading">
+        <el-table-column type="index" label="#" width="50" align="center"/>
+        <el-table-column prop="realName" label="姓名" width="100"/>
+        <el-table-column prop="username" label="用户名" width="110"/>
+        <el-table-column prop="title" label="职称" width="100"><template #default="{row}">{{ row.title || '-' }}</template></el-table-column>
+        <el-table-column label="任教学科" min-width="160"><template #default="{row}"><el-tag v-for="s in (row.subjects||[])" :key="s" size="small" style="margin:1px">{{ s }}</el-tag><span v-if="!row.subjects?.length" style="color:var(--text-muted);font-size:12px">未设置</span></template></el-table-column>
+        <el-table-column prop="orgName" label="机构" min-width="120"><template #default="{row}">{{ row.orgName || '-' }}</template></el-table-column>
+        <el-table-column prop="phone" label="联系方式" width="120"><template #default="{row}">{{ row.phone || '-' }}</template></el-table-column>
+        <el-table-column label="学生/课时" width="130"><template #default="{row}">{{ row.studentCount ?? 0 }}名 · {{ row.totalHours ?? 0 }}课时</template></el-table-column>
+        <el-table-column label="操作" width="170" align="center"><template #default="{row}"><el-button size="small" text type="primary" @click="showDetail(row)">详情</el-button><el-button size="small" text type="primary" @click="editTeacher(row)">编辑</el-button><el-button size="small" text type="danger" @click="del(row)">删除</el-button></template></el-table-column>
+      </el-table>
+      <div class="tp-pagination" v-if="total > pageSize">
+        <el-pagination v-model:current-page="page" :page-size="pageSize" :total="total" layout="total, prev, pager, next" background @current-change="load"/>
+      </div>
+    </el-card>
 
     <!-- 新增/编辑弹窗 -->
     <el-dialog v-model="showForm" :title="editingId?'编辑老师':'新增老师'" width="580px" destroy-on-close>
@@ -61,10 +62,20 @@ import { getAdminTeachers, getAdminTeacher, createAdminTeacher, updateAdminTeach
 const subjectList = ['语文','数学','英语','物理','化学','生物','历史','政治','地理']
 const search = ref(''); const showForm = ref(false); const showDlg = ref(false); const saving = ref(false)
 const editingId = ref(null); const selectedTeacher = ref(null); const selectedDetail = ref(null)
-const teachers = ref([])
+const teachers = ref([]); const loading = ref(false); const page = ref(1); const pageSize = ref(20); const total = ref(0)
 const form = reactive({ realName:'', username:'', password:'', title:'', subjectIds:[], orgName:'', phone:'' })
 
-async function load() { try { const r = await getAdminTeachers({ page:1, pageSize:100 }); teachers.value = r.list||[] } catch {} }
+async function load() {
+  loading.value = true
+  try {
+    const r = await getAdminTeachers({ page: page.value, pageSize: pageSize.value, keyword: search.value })
+    const d = r?.data ?? r
+    teachers.value = d?.list ?? d?.records ?? []
+    total.value = d?.total ?? teachers.value.length
+  } catch { teachers.value = [] }
+  finally { loading.value = false }
+}
+function onSearch() { page.value = 1; load() }
 onMounted(load)
 
 function openAdd() { editingId.value = null; Object.assign(form, { realName:'', username:'', password:'', title:'', subjectIds:[], orgName:'', phone:'' }); showForm.value = true }
@@ -95,7 +106,5 @@ async function showDetail(t) { selectedTeacher.value = t; showDlg.value = true; 
 </script>
 <style scoped>
 .mb-lg{margin-bottom:var(--space-lg)}.mt-lg{margin-top:var(--space-lg)}
-.teacher-card{transition:all var(--transition)}.teacher-card:hover{border-color:var(--color-primary-light)}
-.teacher-top{display:flex;align-items:center;gap:12px;margin-bottom:12px;cursor:pointer}.teacher-avatar{width:44px;height:44px;border-radius:50%;background:var(--color-primary-bg);color:var(--color-primary);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700}
-.teacher-top h3{font-size:16px;margin-bottom:2px}.teacher-title{font-size:12px;color:var(--text-muted)}.teacher-subjects{margin-bottom:12px;cursor:pointer}.teacher-footer{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-muted);border-top:1px solid var(--color-border-light);padding-top:10px}
+.tp-pagination{display:flex;justify-content:flex-end;margin-top:14px}
 </style>
