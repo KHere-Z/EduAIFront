@@ -17,7 +17,6 @@ const routes = [
       // 老师端学科管理
       { path: 'subject/math/manage', component: () => import('@/views/teacher/subject/pages/MathManage.vue'), meta: { title: '数学学科管理' } },
       { path: 'subject/math/batch-upload', component: () => import('@/views/teacher/subject/pages/BatchUpload.vue'), meta: { title: '批量上传题目' } },
-      { path: 'subject/math/kp-resources/:kpId', component: () => import('@/views/teacher/subject/pages/KpResourcesView.vue'), meta: { title: '资源管理' } },
       { path: 'subject/math/exam-builder', component: () => import('@/views/teacher/subject/pages/MathExamBuilder.vue'), meta: { title: '出卷' } },
       // 英语首页
       { path: 'english/home', component: () => import('@/views/teacher/english/EnglishHome.vue'), meta: { title: '英语学科中心' } },

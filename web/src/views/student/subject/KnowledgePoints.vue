@@ -14,7 +14,6 @@
         </div>
         <div class="kp-items" v-show="!collapsed.has(g.semester)">
           <div class="kp-item" v-for="kp in g.items" :key="kp.id" @click="viewKp(kp)">
-            <span class="kpi-num">{{ kp.id }}</span>
             <div class="kpi-info"><span class="kpi-name">{{ kp.name }}</span></div>
           </div>
         </div>
@@ -36,13 +35,13 @@ const router = useRouter()
 const subject = computed(() => route.params.subject || 'math')
 const studentGrade = computed(() => auth.user?.grade || '初三')
 
-// 毕业年级：展示全阶段知识点
+// 按学段展示全阶段知识点：初中显示初一上~初三下，高中显示高一上~高三下
 const stageGrades = computed(() => {
-  const g = studentGrade.value
-  if (g === '初三') return ['初一·上学期','初一·下学期','初二·上学期','初二·下学期','初三·上学期','初三·下学期']
-  if (g === '高三') return ['高一·上学期','高一·下学期','高二·上学期','高二·下学期','高三·上学期','高三·下学期']
-  if (g === '六年级') return ['六年级·上学期','六年级·下学期']
-  // 非毕业年级：展示当前年级上下学期
+  const g = studentGrade.value || ''
+  if (/^初/.test(g)) return ['初一·上学期','初一·下学期','初二·上学期','初二·下学期','初三·上学期','初三·下学期']
+  if (/^高/.test(g)) return ['高一·上学期','高一·下学期','高二·上学期','高二·下学期','高三·上学期','高三·下学期']
+  if (/^六年/.test(g)) return ['六年级·上学期','六年级·下学期']
+  // 其他年级：展示当前年级上下学期
   if (g) return [`${g}·上学期`,`${g}·下学期`]
   // 未知年级：默认初一上学期
   return ['初一·上学期']
