@@ -185,4 +185,10 @@ onMounted(loadHomeworks)
 .hw-section-label{font-size:13px;font-weight:600;color:#555;margin-bottom:6px}
 .hw-modify-btn{margin-top:4px}
 .hw-footer{text-align:right;font-size:11px;color:#ccc;margin-top:8px}
+
+/* 移动端：批改对比区堆叠、缩略图缩小 */
+@media (max-width: 640px) {
+  .hw-view{flex-direction:column}
+  .hw-img-item,.hw-img-add{width:76px;height:76px}
+}
 </style>

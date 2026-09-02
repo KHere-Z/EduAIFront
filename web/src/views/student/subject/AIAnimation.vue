@@ -607,5 +607,7 @@ onBeforeUnmount(() => {
   .aa-layout { flex-direction: column; }
   .aa-left { width: 100%; }
   .canvas-card { min-height: 320px; }
+  .meta-row { flex-wrap: wrap; }
+  .meta-row .el-button { flex: 1; }
 }
 </style>

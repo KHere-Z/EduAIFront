@@ -128,4 +128,12 @@ onMounted(async () => {
 .scd-item{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:10px;background:var(--color-bg);border:1px solid var(--color-border-light)}
 .scdi-type{font-size:14px;color:var(--text-primary);font-weight:500}.scdi-date{font-size:11px;color:var(--text-muted);margin-left:10px}
 .scdi-score{font-size:22px;font-weight:700}
+
+/* 移动端：学科卡改 2 列，弹窗内容收窄 */
+@media (max-width: 640px) {
+  .sc-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .sc-card{padding:16px 12px}
+  .scc-bottom{gap:8px}
+  .sccs-value{font-size:17px}
+}
 </style>
