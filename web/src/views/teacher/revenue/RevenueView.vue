@@ -1,7 +1,7 @@
 <template>
   <div class="revenue-page">
     <h2 class="rv-title">💰 收益中心</h2>
-    <p class="rv-sub">上传的学习资源被下载后，你将获得 50% 分成，可提现到银行卡。</p>
+    <p class="rv-sub">上传的学习资源被下载后，你将获得 50% 分成（以智学点发放）。</p>
 
     <!-- 汇总卡片 -->
     <div class="rv-cards">
