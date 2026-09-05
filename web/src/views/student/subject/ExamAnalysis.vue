@@ -602,7 +602,7 @@ function scrollBottom() { nextTick(()=>{const el=chatBox.value;if(el)el.scrollTo
 .chat-card{flex:1;min-width:0;background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.03);overflow:hidden;border:1px solid var(--color-border);display:flex;flex-direction:column}
 .panel-card{flex:1;min-width:0;background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.03);border:1px solid var(--color-border);overflow-y:auto;overflow-x:visible}
 .panel-topbar{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;border-bottom:1px solid var(--color-border-light);position:sticky;top:0;background:#fff;z-index:1}
-.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--color-bg)}
+.chat-messages{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--color-bg)}
 .welcome-area{text-align:center;padding:40px 20px 20px}.welcome-area svg{margin-bottom:10px;animation:bounce 2s infinite}@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}.welcome-area h3{font-size:17px;font-weight:700;color:var(--text-primary);margin-bottom:4px}.welcome-area p{font-size:13px;color:var(--text-muted)}
 .msg-row{display:flex;gap:8px;max-width:88%}.msg-row.user{align-self:flex-end;flex-direction:row-reverse}.msg-row.ai{align-self:flex-start}
 .msg-avatar{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff}

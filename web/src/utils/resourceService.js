@@ -95,8 +95,27 @@ function collectResources(nodeType, nodeId) {
   return read(K.resources).filter(r => resMatches(r, nodeType, nodeId, scope))
 }
 
-export async function listResources(nodeType, nodeId) {
-  return withFallback(() => api.getResources({ nodeType, nodeId }), () => collectResources(nodeType, nodeId))
+export async function listResources(nodeType, nodeId, opts = {}) {
+  const { page, pageSize, type, year } = opts || {}
+  const params = { nodeType, nodeId }
+  if (page != null) params.page = page
+  if (pageSize != null) params.pageSize = pageSize
+  if (type) params.type = type
+  if (year) params.year = year
+  return withFallback(
+    () => api.getResources(params),
+    () => {
+      let arr = collectResources(nodeType, nodeId)
+      if (type) arr = arr.filter(r => r.type === type || r.tag === type)
+      if (year) arr = arr.filter(r => String(r.year) === String(year))
+      if (page != null && pageSize != null) {
+        const total = arr.length
+        const list = arr.slice((page - 1) * pageSize, page * pageSize)
+        return { list, total, page, pageSize }
+      }
+      return arr
+    }
+  )
 }
 export async function addResources(nodeType, nodeId, subject, tag, year, price, shared, files, previewPaths = []) {
   return withFallback(
