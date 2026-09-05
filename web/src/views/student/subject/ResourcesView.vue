@@ -40,14 +40,14 @@
         <div class="res-filter-bar">
           <div class="rfb-row">
             <span class="rfb-label">类型</span>
-            <el-radio-group v-model="filterType" size="small" @change="applyFilter()">
+            <el-radio-group v-model="filterType" size="small" @change="loadResList()">
               <el-radio-button value="">不限</el-radio-button>
               <el-radio-button value="课件">课件</el-radio-button>
               <el-radio-button value="学案">学案</el-radio-button>
               <el-radio-button value="作业">作业</el-radio-button>
               <el-radio-button value="试卷">试卷</el-radio-button>
             </el-radio-group>
-            <el-select v-model="filterYear" placeholder="年份" size="small" clearable style="width:100px;margin-left:12px" @change="applyFilter()">
+            <el-select v-model="filterYear" placeholder="年份" size="small" clearable style="width:100px;margin-left:12px" @change="loadResList()">
               <el-option v-for="y in yearOptions" :key="y" :label="y + ' 年'" :value="y"/>
             </el-select>
           </div>
@@ -79,6 +79,9 @@
             </div>
           </div>
           <el-empty v-else :description="currentNode ? '本级暂无资源' : '请在左侧目录中选择节点查看资源'" :image-size="80"/>
+          <div class="res-pagination" v-if="resTotal > pageSize">
+            <el-pagination v-model:current-page="page" :page-size="pageSize" :total="resTotal" layout="total, prev, pager, next" background @current-change="fetchPage"/>
+          </div>
         </div>
       </main>
     </div>
@@ -122,10 +125,11 @@ const filterYear = ref('')
 const yearOptions = ['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018']
 
 const resList = ref([])
-const resRaw = ref([]) // 当前小节的完整资源列表（未过滤）
 const resTotal = ref(0)
 const currentNode = ref(null)
 const currentLoc = ref([])
+const page = ref(1)
+const pageSize = ref(20)
 
 // el-tree 懒加载：教材 → 章节 → 小节
 function loadNode(node, resolve) {
@@ -167,17 +171,26 @@ function onTreeClick(data, node) {
 
 async function loadResList() {
   const node = currentNode.value
-  if (!node) { resRaw.value = []; resList.value = []; resTotal.value = 0; return }
-  resRaw.value = (await listResources(node.type, node.id)) || []
-  applyFilter()
+  if (!node) { resList.value = []; resTotal.value = 0; return }
+  page.value = 1
+  await fetchPage()
 }
 
-function applyFilter() {
-  let filtered = resRaw.value
-  if (filterType.value) filtered = filtered.filter(r => r.type === filterType.value || r.tag === filterType.value)
-  if (filterYear.value) filtered = filtered.filter(r => String(r.year) === String(filterYear.value))
-  resList.value = filtered
-  resTotal.value = filtered.length
+async function fetchPage() {
+  const node = currentNode.value
+  if (!node) { resList.value = []; resTotal.value = 0; return }
+  const r = await listResources(node.type, node.id, {
+    page: page.value, pageSize: pageSize.value,
+    type: filterType.value || undefined,
+    year: filterYear.value || undefined,
+  })
+  if (Array.isArray(r)) {
+    resList.value = r
+    resTotal.value = r.length
+  } else {
+    resList.value = r?.list ?? []
+    resTotal.value = r?.total ?? resList.value.length
+  }
 }
 
 function fmtSize(n) {
@@ -263,6 +276,7 @@ async function downloadRes(r) {
 /* 列表 */
 .res-list-area{background:rgba(255,255,255,.9);border-radius:12px;padding:14px 16px;box-shadow:0 1px 6px rgba(0,0,0,.04)}
 .resl-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.res-pagination{display:flex;justify-content:flex-end;margin-top:14px}
 .resl-total{font-size:12px;color:var(--text-muted)}
 
 .resl-list{display:flex;flex-direction:column;gap:8px}

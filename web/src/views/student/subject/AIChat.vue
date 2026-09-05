@@ -377,11 +377,16 @@ function scrollBottom() {
   box-shadow: var(--shadow-md);
   overflow: hidden;
   border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 220px);
+  min-height: 480px;
 }
 
 /* 消息区域 */
 .chat-messages {
-  height: 420px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 20px;
   display: flex;
@@ -489,6 +494,7 @@ function scrollBottom() {
 .ci-hint { font-size: 11px; color: var(--text-muted); }
 
 @media (max-width: 480px) {
+  .chat-card { height: auto; min-height: 0; }
   .chat-messages { height: 340px; padding: 12px; }
   .msg-row { max-width: 95%; }
   .msg-img { max-width: 140px; max-height: 140px; }

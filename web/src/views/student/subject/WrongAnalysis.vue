@@ -731,7 +731,7 @@ onBeforeUnmount(() => { showCrop.value = false; showPreview.value = false })
 .panel-card { flex: 1; min-width: 0; background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); border: 1px solid var(--color-border); overflow-y: auto; }
 
 /* 聊天区 */
-.chat-messages { height: 420px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--color-bg); }
+.chat-messages { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--color-bg); }
 .welcome-area { text-align: center; padding: 40px 20px 20px; }
 .welcome-svg { margin-bottom: 12px; animation: bounce 2s infinite; }
 @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
