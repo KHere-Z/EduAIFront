@@ -1,18 +1,21 @@
 import http from '@/api/request'
 
+// 登录/验证码相关接口统一加 silent:true —— 错误提示由登录页按场景给出，
+// 避免全局拦截器再弹一条（例如把 "Request failed with status code 400" 直接抛给用户）。
+
 // 密码登录（保留兼容）
 export function login(username, password) {
-  return http.post('/auth/login', { username, password })
+  return http.post('/auth/login', { username, password }, { silent: true })
 }
 
 // 发送短信验证码
 export function sendSmsCode(phone) {
-  return http.post('/auth/send-sms', { phone })
+  return http.post('/auth/send-sms', { phone }, { silent: true })
 }
 
 // 手机号+验证码登录（新用户自动注册）
 export function loginBySms(phone, code, role) {
-  return http.post('/auth/login-sms', { phone, code, role })
+  return http.post('/auth/login-sms', { phone, code, role }, { silent: true })
 }
 
 // 微信登录

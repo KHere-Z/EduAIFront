@@ -85,18 +85,38 @@
       <button class="rcc-submit" @click="createOrder" :disabled="paying||paid">
         <span v-if="paying" class="spinner"/><span>💳 立即支付 ¥{{ totalAmount }}</span>
       </button>
-
-      <!-- 支付状态 -->
-      <div class="rc-qr" v-if="qrUrl">
-        <img :src="qrUrl" class="rcqr-img" v-if="qrUrl.startsWith('data:') || qrUrl.startsWith('http')"/>
-        <div class="rcqr-mock" v-else>
-          <div class="rcqrm-qr">{{ qrUrl }}</div>
-        </div>
-        <el-tag v-if="paid" type="success">✅ 支付成功</el-tag>
-        <el-tag v-else type="warning">⏳ 等待支付…</el-tag>
-        <el-button v-if="isDev" size="small" @click="mockPay" style="margin-top:8px">🧪 模拟支付(开发)</el-button>
-      </div>
     </div>
+
+    <!-- 支付二维码悬浮框：可手动关闭，支付成功后自动关闭 -->
+    <el-dialog
+      v-model="payDialogVisible"
+      width="340px"
+      :close-on-click-modal="false"
+      @closed="onPayDialogClosed"
+    >
+      <template #header>
+        <div class="pd-head">
+          <span class="pd-brand" :class="orderChannel">
+            <svg v-if="orderChannel==='wechat'" width="17" height="17" viewBox="0 0 24 24" fill="#fff"><path d="M8.5 11a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm7 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM12 2C6.48 2 2 6.06 2 11.07c0 2.76 1.42 5.22 3.62 6.8l-.9 2.7a.3.3 0 00.46.33l3.18-1.59c1.15.32 2.37.5 3.64.5 5.52 0 10-4.06 10-9.07S17.52 2 12 2z"/></svg>
+            <span v-else class="pd-brand-glyph">支</span>
+          </span>
+          <span class="pd-title">{{ orderChannel==='wechat' ? '微信支付' : '支付宝支付' }}</span>
+        </div>
+      </template>
+
+      <div class="pd-body">
+        <div class="pd-amount">¥{{ orderAmount }}</div>
+        <div class="pd-qr">
+          <img :src="qrUrl" class="pd-qr-img" v-if="qrUrl.startsWith('data:') || qrUrl.startsWith('http')"/>
+          <div class="pd-qr-mock" v-else>{{ qrUrl }}</div>
+        </div>
+        <div class="pd-status" :class="{ok:paid}">
+          <span class="pd-dot"></span>
+          {{ paid ? '支付成功' : '请使用' + (orderChannel==='wechat'?'微信':'支付宝') + '扫码完成支付' }}
+        </div>
+        <el-button v-if="isDev" size="small" @click="mockPay" style="margin-top:12px">🧪 模拟支付(开发)</el-button>
+      </div>
+    </el-dialog>
 
     <!-- 记录 -->
     <div class="rc-section">
@@ -124,7 +144,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import http from '@/api/request'
 import QRCode from 'qrcode'
@@ -140,6 +160,10 @@ const qrUrl = ref('')
 const orderId = ref('')
 const paying = ref(false)
 const paid = ref(false)
+const payDialogVisible = ref(false)
+const orderChannel = ref('alipay') // 下单时锁定的支付渠道（弹窗图标据此展示）
+const orderAmount = ref('0.00')
+let pollTimer = null
 const history = ref([])
 const historyPage = ref(1)
 const historyTotal = ref(0)
@@ -188,6 +212,9 @@ async function createOrder() {
     const r = await http.post('/payment/create', body)
     orderId.value = r?.orderId || r?.data?.orderId || ''
     const qrContent = r?.qrCode || r?.data?.qrCode || ''
+    // 锁定本次下单的渠道与金额，弹窗展示用（避免用户中途切换渠道导致图文不符）
+    orderChannel.value = payChannel.value
+    orderAmount.value = totalAmount.value
     if (qrContent.startsWith('weixin://') || qrContent.startsWith('alipay://')) {
       // 真微信/支付宝 Native 链接 → 渲染成二维码图片
       qrUrl.value = await QRCode.toDataURL(qrContent, { width: 320, margin: 1 })
@@ -196,27 +223,52 @@ async function createOrder() {
       qrUrl.value = qrContent
     }
     paid.value = false
-    ElMessage.success('订单已创建')
+    payDialogVisible.value = true
     pollPayment()
   } catch (e) { ElMessage.error(e.message||'创建失败') }
   paying.value = false
 }
 
+function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }
+
 function pollPayment() {
-  const timer = setInterval(async () => {
-    if (paid.value) { clearInterval(timer); return }
+  stopPoll()
+  pollTimer = setInterval(async () => {
+    if (paid.value) { stopPoll(); return }
     try {
       const r = await http.get(`/payment/status/${orderId.value}`)
-      if ((r?.status||r?.data?.status)==='paid') { paid.value=true; clearInterval(timer); ElMessage.success('支付成功！'); loadData() }
+      if ((r?.status||r?.data?.status)==='paid') {
+        paid.value = true
+        stopPoll()
+        ElMessage.success('支付成功！')
+        loadData()
+        // 识别到支付成功 → 自动关闭悬浮框
+        setTimeout(() => { payDialogVisible.value = false }, 800)
+      }
     } catch {}
   }, 2000)
 }
 
+// 悬浮框关闭（手动叉掉或支付成功后自动关闭）→ 停止轮询并复位按钮
+function onPayDialogClosed() {
+  stopPoll()
+  paid.value = false
+  qrUrl.value = ''
+}
+
 async function mockPay() {
-  try { await http.post(`/payment/mock-pay/${orderId.value}`); paid.value=true; ElMessage.success('模拟支付成功'); loadData() } catch {}
+  try {
+    await http.post(`/payment/mock-pay/${orderId.value}`)
+    paid.value = true
+    ElMessage.success('模拟支付成功')
+    loadData()
+    stopPoll()
+    setTimeout(() => { payDialogVisible.value = false }, 800)
+  } catch {}
 }
 
 onMounted(loadData)
+onBeforeUnmount(stopPoll)
 </script>
 
 <style scoped>
@@ -253,8 +305,22 @@ onMounted(loadData)
 .rcc-submit{width:100%;height:48px;border:none;border-radius:12px;background:linear-gradient(135deg,#EF4444,#DC2626);color:#fff;font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit}.rcc-submit:disabled{opacity:.6;cursor:not-allowed}
 .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 
-.rc-qr{text-align:center;padding:16px;margin-top:16px;background:var(--color-bg);border-radius:10px}.rcqr-img{width:160px;height:160px;border-radius:8px}
-.rcqr-mock{text-align:center;padding:12px}.rcqrm-qr{padding:20px;background:#fff;border:1px dashed var(--color-border);border-radius:8px;font-family:monospace;font-size:12px;color:var(--text-muted);word-break:break-all}
+/* 支付二维码悬浮框 */
+.pd-head{display:flex;align-items:center;gap:8px}
+.pd-brand{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pd-brand.alipay{background:#1677FF}.pd-brand.wechat{background:#07C160}
+.pd-brand-glyph{color:#fff;font-size:15px;font-weight:700;line-height:1}
+.pd-title{font-size:15px;font-weight:600;color:var(--text-primary)}
+.pd-body{text-align:center;padding:4px 0 8px}
+.pd-amount{font-size:26px;font-weight:800;color:#EF4444;margin-bottom:14px}
+.pd-qr{display:inline-flex;align-items:center;justify-content:center;padding:10px;background:#fff;border:1px solid var(--color-border-light);border-radius:10px}
+.pd-qr-img{width:180px;height:180px;border-radius:6px;display:block}
+.pd-qr-mock{width:180px;padding:14px;font-family:monospace;font-size:11px;color:var(--text-muted);word-break:break-all;text-align:left}
+.pd-status{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;font-size:13px;color:var(--text-muted)}
+.pd-status .pd-dot{width:7px;height:7px;border-radius:50%;background:#F59E0B;animation:pdPulse 1.4s infinite ease-in-out}
+.pd-status.ok{color:#10B981}
+.pd-status.ok .pd-dot{background:#10B981;animation:none}
+@keyframes pdPulse{0%,100%{opacity:1}50%{opacity:.25}}
 
 .rc-history{display:flex;flex-direction:column;gap:6px}
 .rch-item{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:8px;background:var(--color-bg)}.rch-amount{font-weight:700;width:60px}.rch-amount.plus{color:#10B981}.rch-amount.minus{color:#EF4444}.rch-desc{flex:1;font-size:13px;color:var(--text-secondary)}.rch-time{font-size:11px;color:var(--text-muted)}

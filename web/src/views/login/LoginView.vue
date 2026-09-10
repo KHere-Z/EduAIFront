@@ -125,8 +125,18 @@ async function handlePwdLogin() {
     if (rt === 4 || rt === 'student') await authStore.enrichStudentSubjects()
     await navigateByRole(rt)
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || e.message || '登录失败')
+    ElMessage.error(loginErrorText(e))
   } finally { loading.value = false }
+}
+
+// 把登录失败转成用户可读的提示，避免暴露 HTTP 状态码
+function loginErrorText(e) {
+  const bizMsg = e.response?.data?.message
+  if (bizMsg) return bizMsg
+  const status = e.response?.status
+  if (status === 400 || status === 401) return '用户名或密码错误'
+  if (status >= 500) return '服务器开小差了，请稍后重试'
+  return '登录失败，请稍后重试'
 }
 
 // 短信登录
@@ -162,7 +172,7 @@ async function handleSmsLogin() {
     const msg = e.response?.data?.message || e.message || ''
     if (msg.includes('角色') || e.response?.data?.code === 40009) {
       ElMessage.info('请选择角色后重试')
-    } else { ElMessage.error(msg || '登录失败') }
+    } else { ElMessage.error(loginErrorText(e)) }
   }
   smsLoading.value = false
 }
