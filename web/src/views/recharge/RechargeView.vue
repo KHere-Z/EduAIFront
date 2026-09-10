@@ -88,13 +88,13 @@
 
       <!-- 支付状态 -->
       <div class="rc-qr" v-if="qrUrl">
-        <img :src="qrUrl" class="rcqr-img" v-if="qrUrl.startsWith('http')"/>
+        <img :src="qrUrl" class="rcqr-img" v-if="qrUrl.startsWith('data:') || qrUrl.startsWith('http')"/>
         <div class="rcqr-mock" v-else>
           <div class="rcqrm-qr">{{ qrUrl }}</div>
         </div>
         <el-tag v-if="paid" type="success">✅ 支付成功</el-tag>
         <el-tag v-else type="warning">⏳ 等待支付…</el-tag>
-        <el-button size="small" @click="mockPay" style="margin-top:8px">🧪 模拟支付(开发)</el-button>
+        <el-button v-if="isDev" size="small" @click="mockPay" style="margin-top:8px">🧪 模拟支付(开发)</el-button>
       </div>
     </div>
 
@@ -127,7 +127,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import http from '@/api/request'
+import QRCode from 'qrcode'
 
+const isDev = import.meta.env.DEV
 const balance = ref(0)
 const member = ref({ active: false, plan: '', discount: 1.0 })
 const selectedPlan = ref(null)
@@ -185,7 +187,14 @@ async function createOrder() {
     if (chargePoints.value) body.points = chargePoints.value === -1 ? customPoints.value : chargePoints.value
     const r = await http.post('/payment/create', body)
     orderId.value = r?.orderId || r?.data?.orderId || ''
-    qrUrl.value = r?.qrCode || r?.data?.qrCode || ''
+    const qrContent = r?.qrCode || r?.data?.qrCode || ''
+    if (qrContent.startsWith('weixin://') || qrContent.startsWith('alipay://')) {
+      // 真微信/支付宝 Native 链接 → 渲染成二维码图片
+      qrUrl.value = await QRCode.toDataURL(qrContent, { width: 320, margin: 1 })
+    } else {
+      // 开发环境 mock 字符串 → 保持原样
+      qrUrl.value = qrContent
+    }
     paid.value = false
     ElMessage.success('订单已创建')
     pollPayment()
