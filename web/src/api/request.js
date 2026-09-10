@@ -26,26 +26,55 @@ http.interceptors.request.use(config => {
   return config
 })
 
+// HTTP 状态码 → 用户可读文案（不暴露 "Request failed with status code 400" 这类原始信息）
+const STATUS_TEXT = {
+  400: '请求参数有误，请检查后重试',
+  403: '没有权限执行该操作',
+  404: '请求的资源不存在',
+  429: '操作过于频繁，请稍后再试',
+}
+
+function resolveErrorMessage(error) {
+  const status = error.response?.status
+  const data = error.response?.data
+  // 优先用后端返回的业务文案
+  if (data && typeof data === 'object') {
+    const m = data.message || data.msg || data.error
+    if (typeof m === 'string' && m.trim()) return m
+  }
+  if (!error.response) return '网络连接失败，请检查网络后重试'
+  if (STATUS_TEXT[status]) return STATUS_TEXT[status]
+  if (status >= 500) return '服务器开小差了，请稍后重试'
+  return '请求失败，请稍后重试'
+}
+
+// 请求配置里带 silent: true 时，不弹全局错误提示（由调用方自行提示，避免重复弹窗）
+const isSilent = (config) => config?.silent === true
+
 http.interceptors.response.use(
   response => {
-    const { data } = response
+    const { data, config } = response
     // 后端统一响应: { code, message, data }
     if (data.code && data.code !== 200) {
-      ElMessage.error(data.message || '请求失败')
-      if (data.code === 401) {
+      if (!isSilent(config)) ElMessage.error(data.message || '请求失败')
+      // 登录类请求（silent）失败不做登出跳转，否则会在登录页自我跳转
+      if (data.code === 401 && !isSilent(config)) {
         useAuthStore().logout()
         router.push('/login')
       }
-      return Promise.reject(new Error(data.message))
+      const err = new Error(data.message || '请求失败')
+      err.response = response
+      return Promise.reject(err)
     }
     return data.data ?? data
   },
   error => {
-    if (error.response?.status === 401) {
+    const silent = isSilent(error.config)
+    if (error.response?.status === 401 && !silent) {
       useAuthStore().logout()
       router.push('/login')
     }
-    ElMessage.error(error.message || '网络错误')
+    if (!silent) ElMessage.error(resolveErrorMessage(error))
     return Promise.reject(error)
   }
 )
