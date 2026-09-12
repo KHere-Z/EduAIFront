@@ -250,6 +250,12 @@ function pollPayment() {
     if (paid.value) { stopPoll(); return }
     try {
       const r = await http.get(`/payment/status/${orderId.value}`)
+      const d = r?.data ?? r ?? {}
+      // 金额以服务端为准（price 单位为「分」）。支付宝回跳后本地没有锁定的金额，
+      // 靠这里恢复，否则悬浮框会显示 ¥0.00。
+      if (d.price != null && d.price !== '' && Number.isFinite(Number(d.price))) {
+        orderAmount.value = (Number(d.price) / 100).toFixed(2)
+      }
       if ((r?.status||r?.data?.status)==='paid') {
         paid.value = true
         stopPoll()
