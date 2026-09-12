@@ -261,10 +261,17 @@ async function doDelete(ids) {
   if (!ids.length) return
   deleting.value = true
   try {
-    await http.post('/user/points/history/delete', { ids })
-    ElMessage.success(ids.length > 1 ? `已删除 ${ids.length} 条记录` : '记录已删除')
+    const r = await http.post('/user/points/history/delete', { ids })
+    // 以服务端返回的 deleted 为准：重复提交、已被删过的 id 都不计入，
+    // 直接拿请求条数提示会跟实际删除量对不上。
+    const n = r?.deleted ?? ids.length
+    if (n === 0) {
+      ElMessage.info('所选记录已不存在，列表已刷新')
+    } else {
+      ElMessage.success(n > 1 ? `已删除 ${n} 条记录` : '记录已删除')
+    }
     // 删掉当前页最后几条时回退到有效页，避免停在空白页
-    const remain = historyTotal.value - ids.length
+    const remain = historyTotal.value - n
     const maxPage = Math.max(1, Math.ceil(remain / PAGE_SIZE))
     if (historyPage.value > maxPage) historyPage.value = maxPage
     await loadHistory()
