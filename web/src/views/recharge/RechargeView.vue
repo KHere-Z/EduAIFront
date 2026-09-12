@@ -73,7 +73,7 @@
 
       <div class="rc-pay-channels">
         <button :class="['rcpc-btn',{active:payChannel==='alipay'}]" @click="payChannel='alipay'">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm-1-5h2v2h-2v-2zm0-8h2v6h-2V7z"/></svg>
+          <span class="rcpc-logo alipay">支</span>
           支付宝
         </button>
         <button :class="['rcpc-btn',{active:payChannel==='wechat'}]" @click="payChannel='wechat'">
@@ -337,6 +337,9 @@ onBeforeUnmount(stopPoll)
 .rccs-total{display:flex;justify-content:space-between;padding:12px 0 0;border-top:2px solid var(--color-border);margin-top:8px;font-size:16px;font-weight:700;color:var(--text-primary)}.rccst-price{font-size:22px;color:#EF4444}
 
 .rc-pay-channels{display:flex;gap:8px;margin:16px 0}.rcpc-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;border:2px solid var(--color-border-light);border-radius:10px;background:#fff;font-size:14px;cursor:pointer;transition:all .15s;font-family:inherit}.rcpc-btn.active{border-color:var(--color-primary);background:var(--color-primary-bg);color:var(--color-primary);font-weight:600}
+/* 支付渠道品牌标：与弹窗头部 .pd-brand 同一套视觉（支付宝蓝底「支」字、微信绿底气泡） */
+.rcpc-logo{width:18px;height:18px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:12px;font-weight:700;line-height:1}
+.rcpc-logo.alipay{background:#1677FF}
 
 .rcc-submit{width:100%;height:48px;border:none;border-radius:12px;background:linear-gradient(135deg,#EF4444,#DC2626);color:#fff;font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit}.rcc-submit:disabled{opacity:.6;cursor:not-allowed}
 .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
