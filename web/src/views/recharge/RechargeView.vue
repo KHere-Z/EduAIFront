@@ -118,21 +118,55 @@
       </div>
     </el-dialog>
 
-    <!-- 记录 -->
+    <!-- 记录：支持勾选后批量删除，也可单条删除 -->
     <div class="rc-section">
-      <div class="rcs-head"><h3>📋 记录</h3></div>
-      <div class="rc-history" v-if="history.length">
-        <div v-for="h in history" :key="h.id" class="rch-item">
-          <span :class="['rch-amount', h.amount>0?'plus':'minus']">{{ h.amount>0?'+':'' }}{{ h.amount }}</span>
-          <span class="rch-desc">{{ h.description }}</span>
-          <span class="rch-time">{{ h.createdAt?.slice(0,10) }}</span>
+      <div class="rcs-head">
+        <h3>📋 记录</h3>
+        <div class="rch-actions" v-if="history.length">
+          <span class="rch-sel" v-if="selectedIds.length">已选 {{ selectedIds.length }} 条</span>
+          <el-button
+            type="danger"
+            size="small"
+            plain
+            :disabled="!selectedIds.length"
+            :loading="deleting"
+            @click="batchDelete"
+          >批量删除</el-button>
         </div>
       </div>
+
+      <el-table
+        v-if="history.length || historyLoading"
+        :data="history"
+        v-loading="historyLoading"
+        size="small"
+        row-key="id"
+        @selection-change="onSelectionChange"
+      >
+        <el-table-column type="selection" width="46" :selectable="(row) => row.id != null"/>
+        <el-table-column label="变动" width="110">
+          <template #default="{ row }">
+            <span :class="['rch-amount', row.amount>0?'plus':'minus']">{{ row.amount>0?'+':'' }}{{ row.amount }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="说明" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.description || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="时间" width="120">
+          <template #default="{ row }">{{ row.createdAt?.slice(0,10) || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="90" align="center">
+          <template #default="{ row }">
+            <el-button link type="danger" size="small" :disabled="row.id == null" @click="removeOne(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
       <el-empty v-else description="暂无记录" :image-size="60"/>
-      <div class="rch-pagination" v-if="historyTotal > 10">
+
+      <div class="rch-pagination" v-if="historyTotal > PAGE_SIZE">
         <el-pagination
           v-model:current-page="historyPage"
-          :page-size="10"
+          :page-size="PAGE_SIZE"
           :total="historyTotal"
           layout="total, prev, pager, next"
           background
@@ -146,7 +180,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import http from '@/api/request'
 import QRCode from 'qrcode'
 
@@ -170,6 +204,9 @@ let pollTimer = null
 const history = ref([])
 const historyPage = ref(1)
 const historyTotal = ref(0)
+const historyLoading = ref(false)
+const selectedIds = ref([])
+const deleting = ref(false)
 
 const memberPlans = [
   { id:'month', name:'月卡', price:29, period:'月', points:80 },
@@ -197,13 +234,59 @@ async function loadData() {
   loadHistory()
 }
 
+const PAGE_SIZE = 10
+
 async function loadHistory() {
+  historyLoading.value = true
+  selectedIds.value = []
   try {
-    const r = await http.get('/user/points/history', { params: { page: historyPage.value, pageSize: 10 } })
+    const r = await http.get('/user/points/history', { params: { page: historyPage.value, pageSize: PAGE_SIZE } })
     const d = r?.data ?? r
     history.value = d?.list ?? d?.records ?? []
     historyTotal.value = d?.total ?? 0
-  } catch {}
+  } catch {
+    history.value = []
+    historyTotal.value = 0
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+function onSelectionChange(rows) {
+  selectedIds.value = rows.map(r => r.id)
+}
+
+// 删除只移除记录本身，不回滚余额（消耗记录被删不应退点，否则等于凭空造点）
+async function doDelete(ids) {
+  if (!ids.length) return
+  deleting.value = true
+  try {
+    await http.post('/user/points/history/delete', { ids })
+    ElMessage.success(ids.length > 1 ? `已删除 ${ids.length} 条记录` : '记录已删除')
+    // 删掉当前页最后几条时回退到有效页，避免停在空白页
+    const remain = historyTotal.value - ids.length
+    const maxPage = Math.max(1, Math.ceil(remain / PAGE_SIZE))
+    if (historyPage.value > maxPage) historyPage.value = maxPage
+    await loadHistory()
+  } catch {
+    // 全局拦截器已给出错误提示
+  } finally {
+    deleting.value = false
+  }
+}
+
+function batchDelete() {
+  const ids = [...selectedIds.value]
+  if (!ids.length) return
+  ElMessageBox.confirm(`确定删除选中的 ${ids.length} 条智学点记录吗？`, '批量删除', {
+    type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消',
+  }).then(() => doDelete(ids)).catch(() => {})
+}
+
+function removeOne(row) {
+  ElMessageBox.confirm('确定删除这条智学点记录吗？', '删除记录', {
+    type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消',
+  }).then(() => doDelete([row.id])).catch(() => {})
 }
 
 async function createOrder() {
@@ -361,7 +444,8 @@ onBeforeUnmount(stopPoll)
 .pd-status.ok .pd-dot{background:#10B981;animation:none}
 @keyframes pdPulse{0%,100%{opacity:1}50%{opacity:.25}}
 
-.rc-history{display:flex;flex-direction:column;gap:6px}
-.rch-item{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:8px;background:var(--color-bg)}.rch-amount{font-weight:700;width:60px}.rch-amount.plus{color:#10B981}.rch-amount.minus{color:#EF4444}.rch-desc{flex:1;font-size:13px;color:var(--text-secondary)}.rch-time{font-size:11px;color:var(--text-muted)}
+.rch-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
+.rch-sel{font-size:12px;color:var(--text-muted)}
+.rch-amount{font-weight:700}.rch-amount.plus{color:#10B981}.rch-amount.minus{color:#EF4444}
 .rch-pagination{display:flex;justify-content:center;margin-top:14px}
 </style>
