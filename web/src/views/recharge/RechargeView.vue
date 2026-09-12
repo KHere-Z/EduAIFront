@@ -145,10 +145,13 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import http from '@/api/request'
 import QRCode from 'qrcode'
 
+const route = useRoute()
+const router = useRouter()
 const isDev = import.meta.env.DEV
 const balance = ref(0)
 const member = ref({ active: false, plan: '', discount: 1.0 })
@@ -209,12 +212,22 @@ async function createOrder() {
     const body = {}
     if (selectedPlan.value) body.plan = selectedPlan.value
     if (chargePoints.value) body.points = chargePoints.value === -1 ? customPoints.value : chargePoints.value
+    body.channel = payChannel.value
     const r = await http.post('/payment/create', body)
     orderId.value = r?.orderId || r?.data?.orderId || ''
-    const qrContent = r?.qrCode || r?.data?.qrCode || ''
     // 锁定本次下单的渠道与金额，弹窗展示用（避免用户中途切换渠道导致图文不符）
     orderChannel.value = payChannel.value
     orderAmount.value = totalAmount.value
+
+    // 支付宝电脑网站支付：后端返回收银台地址 → 直接跳转，不展示二维码弹窗
+    const payUrl = r?.payUrl || r?.data?.payUrl
+    if (payUrl) {
+      paying.value = false
+      window.location.href = payUrl
+      return
+    }
+
+    const qrContent = r?.qrCode || r?.data?.qrCode || ''
     if (qrContent.startsWith('weixin://') || qrContent.startsWith('alipay://')) {
       // 真微信/支付宝 Native 链接 → 渲染成二维码图片
       qrUrl.value = await QRCode.toDataURL(qrContent, { width: 320, margin: 1 })
@@ -237,6 +250,12 @@ function pollPayment() {
     if (paid.value) { stopPoll(); return }
     try {
       const r = await http.get(`/payment/status/${orderId.value}`)
+      const d = r?.data ?? r ?? {}
+      // 金额以服务端为准（price 单位为「分」）。支付宝回跳后本地没有锁定的金额，
+      // 靠这里恢复，否则悬浮框会显示 ¥0.00。
+      if (d.price != null && d.price !== '' && Number.isFinite(Number(d.price))) {
+        orderAmount.value = (Number(d.price) / 100).toFixed(2)
+      }
       if ((r?.status||r?.data?.status)==='paid') {
         paid.value = true
         stopPoll()
@@ -267,7 +286,24 @@ async function mockPay() {
   } catch {}
 }
 
-onMounted(loadData)
+// 支付宝收银台回跳：URL 带 out_trade_no → 恢复该订单并轮询支付状态。
+// 回跳时异步回调通常还没到，订单仍是 pending，所以用轮询而非直接判定成功。
+function resumeAlipayReturn() {
+  const returnedOrderId = route.query.out_trade_no
+  if (!returnedOrderId) return
+  orderId.value = String(returnedOrderId)
+  orderChannel.value = 'alipay'
+  paid.value = false
+  payDialogVisible.value = true
+  pollPayment()
+  // 清掉 URL 上的订单参数，避免刷新页面重复触发轮询
+  router.replace({ path: route.path, query: {} }).catch(() => {})
+}
+
+onMounted(() => {
+  loadData()
+  resumeAlipayReturn()
+})
 onBeforeUnmount(stopPoll)
 </script>
 
