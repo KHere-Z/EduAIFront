@@ -94,12 +94,13 @@
 
 <script setup>
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/store/auth'
 import { sendSmsCode, loginBySms } from '@/api/common/auth'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 // 登录方式
@@ -179,6 +180,14 @@ async function handleSmsLogin() {
 
 async function navigateByRole(roleType) {
   const rt = String(roleType)
+
+  // 支付回跳中转过来的订单号：登录后直接回充值页，让用户看到支付结果
+  const oid = route.query.redirect
+  if (oid) {
+    const prefix = rt === '4' ? '/student' : rt === '3' ? '/teacher' : null
+    if (prefix) return router.replace(`${prefix}/recharge?out_trade_no=${oid}`)
+  }
+
   let target = '/'
   if (rt === '4' || rt === 'student') target = '/student/dashboard'
   else if (rt === '3' || rt === 'teacher') target = '/teacher/dashboard'
