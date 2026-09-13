@@ -94,6 +94,10 @@ const routes = [
     ]
   },
 
+  // 支付宝同步回跳中转：return_url 是静态配置，而充值页分老师/学生两套路由前缀，
+  // 无法用一个固定地址同时命中两套，故落地到这个角色无关的中转页再分发。
+  { path: '/pay/return', name: 'PayReturn', component: () => import('@/views/recharge/PayReturn.vue'), meta: { title: '支付结果' } },
+
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFound.vue') }
 ]
 
@@ -102,7 +106,9 @@ const router = createRouter({ history: createWebHistory(), routes })
 router.beforeEach((to, from, next) => {
   document.title = to.meta.title ? `${to.meta.title} · 智学AI教育` : '智学AI教育'
   const authStore = useAuthStore()
-  const publicPaths = ['/', '/login', '/register']
+  // /pay/return 必须放行：它是支付宝支付回跳的中转页，本身不展示敏感数据；
+  // 若被拦去登录页，next('/login') 会把 out_trade_no 丢掉，用户再也找不到刚付的订单。
+  const publicPaths = ['/', '/login', '/register', '/pay/return']
   if (!publicPaths.includes(to.path) && !authStore.token) {
     next('/login')
   } else {

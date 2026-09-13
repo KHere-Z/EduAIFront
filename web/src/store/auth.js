@@ -9,7 +9,11 @@ export const useAuthStore = defineStore('auth', () => {
     if (p.startsWith('/student')) return 4
     if (p.startsWith('/teacher')) return 3
     if (p.startsWith('/admin')) return 1
-    // 登录页：尝试读取所有角色 key，取有数据的
+    // 先认最近一次真正登录过的角色，避免多角色并存时被固定顺序误导
+    // （同一标签页「学生→老师」换号登录后，/pay/return 这类角色无关路径据此分对身份）
+    const last = sessionStorage.getItem('eduai_last_role')
+    if (last && sessionStorage.getItem(`eduai_token_${last}`)) return Number(last)
+    // 兜底：尝试读取所有角色 key，取有数据的
     for (const r of [4,3,1]) { if (sessionStorage.getItem(`eduai_token_${r}`)) return r }
     return null
   }
@@ -34,6 +38,7 @@ export const useAuthStore = defineStore('auth', () => {
     // 按角色隔离存储 — 不同角色不会互相覆盖
     sessionStorage.setItem(`eduai_token_${rt}`, res.token)
     sessionStorage.setItem(`eduai_user_${rt}`, JSON.stringify(res.user))
+    sessionStorage.setItem('eduai_last_role', String(rt))
     return res
   }
 
@@ -58,6 +63,7 @@ export const useAuthStore = defineStore('auth', () => {
     
     sessionStorage.setItem(`eduai_token_${roleType}`, fakeToken)
     sessionStorage.setItem(`eduai_user_${roleType}`, JSON.stringify(fakeUser))
+    sessionStorage.setItem('eduai_last_role', String(roleType))
   }
 
   async function enrichStudentSubjects() {
@@ -74,7 +80,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function setToken(t) { token.value = t; if (t && user.value) { const rt = user.value.roleType; sessionStorage.setItem(`eduai_token_${rt}`, t) } }
-  function setUser(u) { user.value = u; if (u && token.value) { const rt = u.roleType; sessionStorage.setItem(`eduai_token_${rt}`, token.value); sessionStorage.setItem(`eduai_user_${rt}`, JSON.stringify(u)) } }
+  function setUser(u) { user.value = u; if (u && token.value) { const rt = u.roleType; sessionStorage.setItem(`eduai_token_${rt}`, token.value); sessionStorage.setItem(`eduai_user_${rt}`, JSON.stringify(u)); sessionStorage.setItem('eduai_last_role', String(rt)) } }
   function setAvatar(url) { if (user.value) { setUser({ ...user.value, avatar: url }) } }
 
   function logout() {
@@ -82,6 +88,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = ''; user.value = null
     
     if (rt) { sessionStorage.removeItem(`eduai_token_${rt}`); sessionStorage.removeItem(`eduai_user_${rt}`) }
+    sessionStorage.removeItem('eduai_last_role')
   }
 
   return { token, user, permissions, isLoggedIn, role, isTeacher, isStudent, isAdmin, login, demoLogin, logout, fetchUserInfo, enrichStudentSubjects, setToken, setUser, setAvatar }
