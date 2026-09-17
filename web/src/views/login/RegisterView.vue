@@ -62,11 +62,12 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { register, sendSmsCode } from '@/api/common/auth'
 
 const router = useRouter()
+const route = useRoute()
 const role = ref('teacher')
 const loading = ref(false)
 const sending = ref(false)
@@ -118,6 +119,11 @@ async function handleRegister() {
 // 粒子背景
 const bgCanvas = ref(null)
 onMounted(() => {
+  // 从短信登录「未注册」跳转过来时，回填手机号 + 验证码（验证码后端保留，复用免重发）
+  const prePhone = route.query.phone
+  if (typeof prePhone === 'string' && prePhone) form.phone = prePhone
+  const preCode = sessionStorage.getItem('reg_prefill_code')
+  if (preCode) { smsCode.value = preCode; sessionStorage.removeItem('reg_prefill_code') }
   const c = bgCanvas.value; if (!c) return
   c.width = window.innerWidth; c.height = window.innerHeight
   const ctx = c.getContext('2d')

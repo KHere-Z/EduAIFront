@@ -42,7 +42,7 @@
 
           <el-form :model="form" :rules="rules" ref="formRef" @submit.prevent="handlePwdLogin" autocomplete="off">
             <el-form-item prop="username">
-              <el-input v-model="form.username" placeholder="用户名" size="large" class="login-input" autocomplete="off">
+              <el-input v-model="form.username" placeholder="用户名 / 手机号" size="large" class="login-input" autocomplete="off">
                 <template #prefix><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></template>
               </el-input>
             </el-form-item>
@@ -83,21 +83,46 @@
             </el-form>
         </div>
 
+        <!-- 用户协议 + 滑块验证 -->
+        <div class="ls-agree">
+          <el-checkbox v-model="agreed">
+            <span class="agree-text">我已阅读并同意</span>
+            <a class="agree-link" @click.prevent="openAgreement('user')">《智学AI网用户协议》</a>
+            <span class="agree-text">和</span>
+            <a class="agree-link" @click.prevent="openAgreement('privacy')">《智学AI网隐私政策》</a>
+          </el-checkbox>
+        </div>
+        <SlideVerify ref="slideVerifyRef" class="ls-slide" @success="captchaOk = true" />
+
         <div class="ls-extra">
           <router-link to="/register" class="ls-register">还没有账号？立即注册</router-link>
         </div>
       </div>
       <p class="ls-copy">© 2026 智学AI教育</p>
     </div>
+
+    <!-- 协议查看弹窗 -->
+    <el-dialog
+      v-model="agreementVisible"
+      :title="agreementTitle"
+      width="680px"
+      top="5vh"
+      :close-on-click-modal="false"
+      class="agreement-dialog"
+    >
+      <div class="agreement-body" v-html="agreementHtml"></div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/store/auth'
 import { sendSmsCode, loginBySms } from '@/api/common/auth'
+import SlideVerify from '@/components/SlideVerify.vue'
+import { USER_AGREEMENT_HTML, PRIVACY_POLICY_HTML } from './agreementContent'
 
 const router = useRouter()
 const route = useRoute()
@@ -110,12 +135,40 @@ const loading = ref(false)
 const formRef = ref(null)
 const form = reactive({ username: '', password: '' })
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  username: [{ required: true, message: '请输入用户名或手机号', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+}
+
+// 用户协议 + 隐私政策 + 滑块验证
+const agreed = ref(false)
+const captchaOk = ref(false)
+const slideVerifyRef = ref(null)
+const agreementVisible = ref(false)
+const agreementTitle = ref('')
+const agreementHtml = ref('')
+
+function openAgreement(type) {
+  agreementTitle.value = type === 'user' ? '智学AI网用户协议' : '智学AI网隐私政策'
+  agreementHtml.value = type === 'user' ? USER_AGREEMENT_HTML : PRIVACY_POLICY_HTML
+  agreementVisible.value = true
+}
+
+// 登录前置校验：需勾选协议 + 完成滑块验证
+function checkPreconditions() {
+  if (!agreed.value) { ElMessage.warning('请先阅读并勾选同意《用户协议》和《隐私政策》'); return false }
+  if (!captchaOk.value) { ElMessage.warning('请先完成滑块验证'); return false }
+  return true
+}
+
+// 登录失败后重置滑块，需重新验证（防脚本暴力尝试）
+function resetCaptcha() {
+  captchaOk.value = false
+  slideVerifyRef.value?.reset()
 }
 
 // 密码登录
 async function handlePwdLogin() {
+  if (!checkPreconditions()) return
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
   loading.value = true
@@ -127,6 +180,7 @@ async function handlePwdLogin() {
     await navigateByRole(rt)
   } catch (e) {
     ElMessage.error(loginErrorText(e))
+    resetCaptcha()
   } finally { loading.value = false }
 }
 
@@ -135,7 +189,7 @@ function loginErrorText(e) {
   const bizMsg = e.response?.data?.message
   if (bizMsg) return bizMsg
   const status = e.response?.status
-  if (status === 400 || status === 401) return '用户名或密码错误'
+  if (status === 400 || status === 401) return '用户名/手机号或密码错误'
   if (status >= 500) return '服务器开小差了，请稍后重试'
   return '登录失败，请稍后重试'
 }
@@ -161,6 +215,7 @@ async function sendCode() {
 }
 
 async function handleSmsLogin() {
+  if (!checkPreconditions()) return
   if (smsCode.value.length < 4) { ElMessage.warning('请输入完整验证码'); return }
   smsLoading.value = true
   try {
@@ -170,10 +225,19 @@ async function handleSmsLogin() {
     ElMessage.success('登录成功')
     await navigateByRole(res.user?.roleType || smsRole.value)
   } catch (e) {
-    const msg = e.response?.data?.message || e.message || ''
-    if (msg.includes('角色') || e.response?.data?.code === 40009) {
-      ElMessage.info('请选择角色后重试')
-    } else { ElMessage.error(loginErrorText(e)) }
+    // 未注册手机号（40012）：短信登录不再自动建号 → 跳注册页并回填手机号
+    if (e.response?.data?.code === 40012) {
+      ElMessageBox.confirm('该手机号尚未注册，是否前往注册？', '未注册', {
+        confirmButtonText: '去注册', cancelButtonText: '取消', type: 'info'
+      }).then(() => {
+        // 验证码已通过 login-sms 校验（后端保留未消费），复用到注册页省一次重发、避免撞 60s 频控
+        sessionStorage.setItem('reg_prefill_code', smsCode.value)
+        router.push({ path: '/register', query: { phone: smsPhone.value } })
+      }).catch(() => {})
+    } else {
+      ElMessage.error(loginErrorText(e))
+    }
+    resetCaptcha()
   }
   smsLoading.value = false
 }
@@ -302,6 +366,16 @@ onBeforeUnmount(() => cancelAnimationFrame(animId))
 .ls-register:hover { color: #818CF8; }
 .ls-copy { color: #334155; font-size: 12px; margin-top: 36px; }
 
+/* 协议勾选 + 滑块 */
+.ls-agree { margin-top: 18px; text-align: left; }
+.ls-agree :deep(.el-checkbox) { height: auto; align-items: flex-start; white-space: normal; }
+.ls-agree :deep(.el-checkbox__label) { font-size: 13px; line-height: 1.7; color: #64748B; }
+.ls-agree :deep(.el-checkbox__inner) { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.22); }
+.ls-agree :deep(.el-checkbox__input.is-checked .el-checkbox__inner) { background: #6366F1; border-color: #6366F1; }
+.agree-link { color: #818CF8; cursor: pointer; }
+.agree-link:hover { text-decoration: underline; }
+.ls-slide { margin-top: 14px; }
+
 /* 移动端：隐藏左侧品牌区，只保留登录表单，收窄内边距 */
 @media (max-width: 768px) {
   .brand-side { display: none; }
@@ -309,4 +383,17 @@ onBeforeUnmount(() => cancelAnimationFrame(animId))
   .ls-card { padding: 28px 20px 24px; }
   .bi-logo { font-size: 36px; }
 }
+</style>
+
+<style>
+/* 协议弹窗：teleport 到 body + v-html 内容，需非 scoped 样式覆盖暗色主题 */
+.el-dialog.agreement-dialog { background: #14142B; border: 1px solid rgba(255,255,255,.08); }
+.el-dialog.agreement-dialog .el-dialog__title { color: #F1F5F9; font-weight: 600; }
+.el-dialog.agreement-dialog .el-dialog__headerbtn .el-dialog__close { color: #64748B; }
+.el-dialog.agreement-dialog .el-dialog__body { padding-top: 8px; }
+.agreement-body { max-height: 62vh; overflow-y: auto; padding-right: 8px; color: #C7D0DE; font-size: 14px; line-height: 1.85; }
+.agreement-body h2 { font-size: 20px; color: #F1F5F9; text-align: center; margin: 0 0 6px; }
+.agreement-body h3 { font-size: 16px; color: #E2E8F0; margin: 20px 0 10px; }
+.agreement-body p { margin: 0 0 10px; }
+.agreement-body .meta { color: #64748B; text-align: center; font-size: 13px; margin-bottom: 16px; }
 </style>

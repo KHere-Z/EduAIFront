@@ -2,7 +2,7 @@
   <div class="rc-page">
     <div class="rc-hero">
       <h2>💰 智学点</h2>
-      <p>1元 = 10智学点 · 学习资源不打折</p>
+      <p>1元 = 10智学点 · 会员赠送点限期内有效，现金充值点永久有效</p>
     </div>
 
     <div class="rc-balance">
@@ -26,12 +26,13 @@
       </div>
       <div class="rc-plans">
         <div v-for="p in memberPlans" :key="p.id" class="rcp-card" :class="{active:selectedPlan===p.id}" @click="togglePlan(p.id)">
-          <div class="rcpc-badge" v-if="p.id==='year'">推荐</div>
+          <div class="rcpc-badge" v-if="p.save || p.id==='year'">{{ p.save || '推荐' }}</div>
           <div class="rcpc-name">{{ p.name }}</div>
           <div class="rcpc-price">¥{{ p.price }}<span class="rcpc-period">/{{ p.period }}</span></div>
           <div class="rcpc-features">
-            <div>送{{ p.points }}点</div>
-            <div>会员专享功能</div>
+            <div class="rcpc-give">赠送 {{ p.points }} 点数</div>
+            <div class="rcpc-equ">等价 {{ p.sets }} 套完整试卷</div>
+            <div class="rcpc-f" v-for="f in memberFeatures" :key="f">{{ f }}</div>
           </div>
           <div class="rcpc-check" v-if="selectedPlan===p.id">✓ 已选</div>
         </div>
@@ -149,9 +150,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import http from '@/api/request'
 import QRCode from 'qrcode'
+import { useAuthStore } from '@/store/auth'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const isDev = import.meta.env.DEV
 const balance = ref(0)
 const member = ref({ active: false, plan: '', discount: 1.0 })
@@ -172,15 +175,20 @@ const historyPage = ref(1)
 const historyTotal = ref(0)
 
 const memberPlans = [
-  { id:'month', name:'月卡', price:29, period:'月', points:80 },
-  { id:'quarter', name:'季卡', price:79, period:'季', points:220 },
-  { id:'halfyear', name:'半年卡', price:139, period:'半年', points:420 },
-  { id:'year', name:'年卡', price:199, period:'年', points:800 },
+  { id:'month', name:'月卡', price:29, period:'月', points:319, sets:63, save:'' },
+  { id:'quarter', name:'季卡', price:79, period:'季', points:829, sets:165, save:'省8.6%' },
+  { id:'halfyear', name:'半年卡', price:139, period:'半年', points:1440, sets:288, save:'省20%' },
+  { id:'year', name:'年卡', price:199, period:'年', points:2080, sets:416, save:'省42.8%' },
 ]
 const pointsOptions = [
   { points:100, price:10 }, { points:300, price:30 },
   { points:500, price:50 }, { points:1000, price:100 },
 ]
+
+// 会员权益列表：老师端与学生端表述不同
+const memberFeatures = computed(() => authStore.isTeacher
+  ? ['PDF报告导出、word试卷导出', 'AI变式题生成', '完整个人学情+错题档案', '无水印报告与试卷']
+  : ['题库挑战，题库分析', '变式题生成', '完整个人学情+错题档案', '无水印报告与试卷'])
 
 const totalAmount = computed(() => {
   let sum = 0
@@ -324,6 +332,7 @@ onBeforeUnmount(stopPoll)
 .rcpc-badge{position:absolute;top:-8px;right:12px;background:#EF4444;color:#fff;font-size:10px;padding:1px 8px;border-radius:8px}
 .rcpc-name{font-size:16px;font-weight:700;color:var(--text-primary)}.rcpc-price{font-size:26px;font-weight:800;color:var(--color-primary);display:block;margin:6px 0}.rcpc-period{font-size:13px;font-weight:400;color:var(--text-muted)}
 .rcpc-features{font-size:12px;color:var(--text-secondary);margin-bottom:8px}.rcpc-features div{margin:2px 0}
+.rcpc-give{font-weight:700;color:var(--color-primary)}.rcpc-equ{font-weight:600;color:var(--text-primary)}.rcpc-f{color:var(--text-muted)}
 .rcpc-check{font-size:12px;color:var(--color-primary);font-weight:600}
 
 .rc-points{display:flex;flex-wrap:wrap;gap:8px}

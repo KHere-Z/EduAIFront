@@ -123,7 +123,7 @@
           <el-radio-group v-model="price">
             <el-radio-button v-for="t in priceTiers" :key="t.price" :value="t.price">{{ t.label }} {{ t.price }}</el-radio-button>
           </el-radio-group>
-          <span class="rup-price-tip">资源点收入的 50% 将计入你的个人账户</span>
+          <span class="rup-price-tip">资源点收入的 20% 将计入你的个人账户</span>
         </template>
       </div>
 
