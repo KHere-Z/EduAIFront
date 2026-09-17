@@ -83,7 +83,7 @@
             </el-form>
         </div>
 
-        <!-- 用户协议 + 滑块验证 -->
+        <!-- 用户协议 -->
         <div class="ls-agree">
           <el-checkbox v-model="agreed">
             <span class="agree-text">我已阅读并同意</span>
@@ -92,7 +92,6 @@
             <a class="agree-link" @click.prevent="openAgreement('privacy')">《智学AI网隐私政策》</a>
           </el-checkbox>
         </div>
-        <SlideVerify ref="slideVerifyRef" class="ls-slide" @success="captchaOk = true" />
 
         <div class="ls-extra">
           <router-link to="/register" class="ls-register">还没有账号？立即注册</router-link>
@@ -121,7 +120,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/store/auth'
 import { sendSmsCode, loginBySms } from '@/api/common/auth'
-import SlideVerify from '@/components/SlideVerify.vue'
 import { USER_AGREEMENT_HTML, PRIVACY_POLICY_HTML } from './agreementContent'
 
 const router = useRouter()
@@ -139,10 +137,8 @@ const rules = {
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
-// 用户协议 + 隐私政策 + 滑块验证
+// 用户协议 + 隐私政策
 const agreed = ref(false)
-const captchaOk = ref(false)
-const slideVerifyRef = ref(null)
 const agreementVisible = ref(false)
 const agreementTitle = ref('')
 const agreementHtml = ref('')
@@ -153,17 +149,10 @@ function openAgreement(type) {
   agreementVisible.value = true
 }
 
-// 登录前置校验：需勾选协议 + 完成滑块验证
+// 登录前置校验：需勾选同意协议
 function checkPreconditions() {
   if (!agreed.value) { ElMessage.warning('请先阅读并勾选同意《用户协议》和《隐私政策》'); return false }
-  if (!captchaOk.value) { ElMessage.warning('请先完成滑块验证'); return false }
   return true
-}
-
-// 登录失败后重置滑块，需重新验证（防脚本暴力尝试）
-function resetCaptcha() {
-  captchaOk.value = false
-  slideVerifyRef.value?.reset()
 }
 
 // 密码登录
@@ -180,7 +169,6 @@ async function handlePwdLogin() {
     await navigateByRole(rt)
   } catch (e) {
     ElMessage.error(loginErrorText(e))
-    resetCaptcha()
   } finally { loading.value = false }
 }
 
@@ -237,7 +225,6 @@ async function handleSmsLogin() {
     } else {
       ElMessage.error(loginErrorText(e))
     }
-    resetCaptcha()
   }
   smsLoading.value = false
 }
@@ -374,7 +361,6 @@ onBeforeUnmount(() => cancelAnimationFrame(animId))
 .ls-agree :deep(.el-checkbox__input.is-checked .el-checkbox__inner) { background: #6366F1; border-color: #6366F1; }
 .agree-link { color: #818CF8; cursor: pointer; }
 .agree-link:hover { text-decoration: underline; }
-.ls-slide { margin-top: 14px; }
 
 /* 移动端：隐藏左侧品牌区，只保留登录表单，收窄内边距 */
 @media (max-width: 768px) {
