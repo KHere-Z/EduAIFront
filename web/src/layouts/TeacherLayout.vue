@@ -27,23 +27,32 @@
           <span class="sfp-label">智学点</span>
           <span class="sfp-num">{{ pointsStore.points }}</span>
         </div>
+        <div class="sf-member" :class="{ active: memberStore.active }" @click="$router.push('/teacher/recharge')">
+          {{ memberStore.active ? '👑 会员' : '开通会员' }}
+        </div>
         <el-button text @click="$router.push('/teacher/profile')" style="width:100%;margin-bottom:4px">👤 个人中心</el-button>
         <el-button text @click="logout" style="width:100%;color:var(--text-muted)"><el-icon><SwitchButton /></el-icon>退出</el-button>
       </div>
     </aside>
     <main class="main-content"><router-view /></main>
+
+    <!-- 体验会员提示（新用户，渐隐出场） -->
+    <TrialBanner />
   </div>
 </template>
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'; import { useRoute, useRouter } from 'vue-router'; import { useAuthStore } from '@/store/auth'
 import { usePointsStore } from '@/store/points'
+import { useMembershipStore } from '@/store/membership'
+import TrialBanner from '@/components/TrialBanner.vue'
 import http from '@/api/request'
 import { getUnreadCount } from '@/api/common/messages'
 const route = useRoute(); const router = useRouter(); const auth = useAuthStore(); const activeMenu = computed(() => route.path)
 const pointsStore = usePointsStore()
+const memberStore = useMembershipStore()
 const unreadCount = ref(0)
 let unreadTimer = null
-onMounted(() => pointsStore.refresh())
+onMounted(() => { pointsStore.refresh(); memberStore.refresh() })
 onMounted(() => { refreshUnread(); unreadTimer = setInterval(refreshUnread, 30000) })
 onUnmounted(() => { if (unreadTimer) clearInterval(unreadTimer) })
 async function refreshUnread() { try { const r = await getUnreadCount(); unreadCount.value = r?.count ?? r?.data?.count ?? 0 } catch {} }
@@ -70,5 +79,8 @@ function logout() { auth.logout(); router.push('/login') }
 .sf-points:hover { background: linear-gradient(135deg, rgba(245,158,11,.25), rgba(251,191,36,.2)); }
 .sfp-label { font-size: 11px; color: var(--text-muted); display: block; }
 .sfp-num { font-size: 22px; font-weight: 700; color: #F59E0B; }
+.sf-member { text-align: center; padding: 6px 0; margin-bottom: 8px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; color: #6366F1; background: rgba(99,102,241,.1); transition: all .2s; }
+.sf-member:hover { background: rgba(99,102,241,.2); }
+.sf-member.active { color: #B45309; background: linear-gradient(135deg, rgba(245,158,11,.16), rgba(251,191,36,.16)); border: 1px solid rgba(245,158,11,.35); }
 .tl-unread { display: inline-block; min-width: 16px; height: 16px; line-height: 16px; padding: 0 4px; margin-left: 6px; border-radius: 8px; background: #EF4444; color: #fff; font-size: 10px; text-align: center; font-weight: 600; }
 </style>

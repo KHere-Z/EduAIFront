@@ -151,10 +151,14 @@ import { ElMessage } from 'element-plus'
 import http from '@/api/request'
 import QRCode from 'qrcode'
 import { useAuthStore } from '@/store/auth'
+import { usePointsStore } from '@/store/points'
+import { useMembershipStore } from '@/store/membership'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const pointsStore = usePointsStore()
+const memberStore = useMembershipStore()
 const isDev = import.meta.env.DEV
 const balance = ref(0)
 const member = ref({ active: false, plan: '', discount: 1.0 })
@@ -202,6 +206,9 @@ function togglePlan(id) { selectedPlan.value = selectedPlan.value===id ? null : 
 async function loadData() {
   try { const r = await http.get('/user/points'); balance.value = r?.points ?? r?.data?.points ?? 0 } catch {}
   try { const r = await http.get('/user/membership'); member.value = r?.data ?? r ?? {} } catch {}
+  // 同步全局 store：顶栏/侧边栏的智学点与会员标识随之刷新
+  pointsStore.refresh()
+  memberStore.refresh()
   loadHistory()
 }
 
