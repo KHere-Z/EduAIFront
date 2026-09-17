@@ -13,8 +13,8 @@
           </div>
         </div>
         <div class="qbh-actions">
-          <el-button type="warning" plain @click="enterFullscreen">⏱ 开始做题</el-button>
-          <el-button type="primary" plain @click="showAnalysis=true">📊 综合分析</el-button>
+          <el-button type="warning" plain @click="startPractice">⏱ 开始做题</el-button>
+          <el-button type="primary" plain @click="openAnalysis">📊 综合分析</el-button>
         </div>
       </div>
 
@@ -647,6 +647,19 @@ function updateMastery() {
     ElMessage.success('掌握度已更新')
   }
 }
+
+// 会员门控：题库挑战的「开始做题 / 综合分析」为会员专享功能
+async function requireMember(feature) {
+  let m = {}
+  try { const r = await http.get('/user/membership'); m = r?.data ?? r ?? {} } catch {}
+  if (m?.active) return true
+  await ElMessageBox.confirm(`${feature}为会员专享功能，开通会员后即可使用。是否前往开通？`, '会员专享', { confirmButtonText:'去开通', cancelButtonText:'取消', type:'warning' })
+    .then(() => router.push('/student/recharge'))
+    .catch(() => {})
+  return false
+}
+async function startPractice() { if (await requireMember('题库挑战')) enterFullscreen() }
+async function openAnalysis() { if (await requireMember('综合分析')) showAnalysis.value = true }
 
 function enterFullscreen() {
   isFullscreen.value = true; seconds = 0; elapsed.value = '00:00'; fsIdx = 0; showFsAnswer.value = false
