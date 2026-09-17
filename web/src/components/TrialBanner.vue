@@ -61,7 +61,7 @@ onBeforeUnmount(() => clearTimeout(hideTimer))
 <style scoped>
 .trial-banner {
   position: fixed;
-  top: 16px;
+  top: 84px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2000;
