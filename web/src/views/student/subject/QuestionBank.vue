@@ -429,12 +429,8 @@ async function submitAnswer() {
     fsSubmitted.value = true
     if (res.cached) ElMessage.info('该题已批改过，本次未扣智学点')
   } catch (e) {
-    // 余额不足（后端兜底）：拦截器已弹错误，这里补跳充值
-    if (/智学点不足/.test(e?.message || '')) {
-      ElMessageBox.confirm('智学点不足，是否前往充值？', '智学点不足', { confirmButtonText:'去充值', cancelButtonText:'取消', type:'warning' })
-        .then(() => router.push('/' + (route.path.startsWith('/teacher') ? 'teacher' : 'student') + '/recharge'))
-    }
-    // 401/403/404/500 已由拦截器统一提示，不重复处理
+    // 会员专享(40011)/智学点不足：拦截器已弹错误，这里补跳充值引导
+    handleRechargeableError(e)
   }
 }
 
@@ -454,7 +450,7 @@ async function saveAnswerOnly() {
     uploadedAnswerFile.value = null
     ElMessage.success('答案已保存（未批改）')
   } catch (e) {
-    // 401/403/404/500 已由拦截器统一提示，不重复处理
+    handleRechargeableError(e)
   }
 }
 
@@ -479,7 +475,7 @@ function updateFsMastery() {
     http.put(`/student/questions/${fsQuestion.value.id}/mastery`, {
       mastery: fsQuestion.value.mastery,
       completed: fsQuestion.value.mastery === 'MASTERED'
-    }).catch(() => {})
+    }).catch(handleRechargeableError)
     // 强制触发 computed 刷新
     questions.value = [...questions.value]
   }
@@ -639,7 +635,7 @@ function updateMastery() {
     http.put(`/student/questions/${currentQ.value.id}/mastery`, {
       mastery: currentQ.value.mastery,
       completed: currentQ.value.mastery === 'MASTERED'
-    }).catch(() => {})
+    }).catch(handleRechargeableError)
     // 同步更新 questions 数组
     const q = questions.value.find(x => x.id === currentQ.value.id)
     if (q) { q.mastery = currentQ.value.mastery; q.masteryTag = currentQ.value.masteryTag; q.masteryLabel = currentQ.value.masteryLabel }
@@ -660,6 +656,20 @@ async function requireMember(feature) {
 }
 async function startPractice() { if (await requireMember('题库挑战')) enterFullscreen() }
 async function openAnalysis() { if (await requireMember('综合分析')) showAnalysis.value = true }
+
+// 动作接口后端业务错误统一处理：会员专享(40011) / 智学点不足 → 弹充值/开通引导
+function handleRechargeableError(e) {
+  const code = e?.response?.data?.code
+  const noPoints = /智学点不足/.test(e?.message || '')
+  const needMember = code === 40011
+  if (!needMember && !noPoints) return
+  ElMessageBox.confirm(
+    needMember ? '该功能为会员专享，开通会员后即可使用。是否前往开通？' : '智学点不足，是否前往充值？',
+    needMember ? '会员专享' : '智学点不足',
+    { confirmButtonText: needMember ? '去开通' : '去充值', cancelButtonText: '取消', type: 'warning' }
+  ).then(() => router.push('/' + (route.path.startsWith('/teacher') ? 'teacher' : 'student') + '/recharge'))
+    .catch(() => {})
+}
 
 function enterFullscreen() {
   isFullscreen.value = true; seconds = 0; elapsed.value = '00:00'; fsIdx = 0; showFsAnswer.value = false
