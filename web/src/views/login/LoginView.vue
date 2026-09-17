@@ -42,7 +42,7 @@
 
           <el-form :model="form" :rules="rules" ref="formRef" @submit.prevent="handlePwdLogin" autocomplete="off">
             <el-form-item prop="username">
-              <el-input v-model="form.username" placeholder="用户名" size="large" class="login-input" autocomplete="off">
+              <el-input v-model="form.username" placeholder="用户名 / 手机号" size="large" class="login-input" autocomplete="off">
                 <template #prefix><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></template>
               </el-input>
             </el-form-item>
@@ -118,7 +118,7 @@
 <script setup>
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/store/auth'
 import { sendSmsCode, loginBySms } from '@/api/common/auth'
 import SlideVerify from '@/components/SlideVerify.vue'
@@ -135,7 +135,7 @@ const loading = ref(false)
 const formRef = ref(null)
 const form = reactive({ username: '', password: '' })
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  username: [{ required: true, message: '请输入用户名或手机号', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
@@ -189,7 +189,7 @@ function loginErrorText(e) {
   const bizMsg = e.response?.data?.message
   if (bizMsg) return bizMsg
   const status = e.response?.status
-  if (status === 400 || status === 401) return '用户名或密码错误'
+  if (status === 400 || status === 401) return '用户名/手机号或密码错误'
   if (status >= 500) return '服务器开小差了，请稍后重试'
   return '登录失败，请稍后重试'
 }
@@ -225,10 +225,18 @@ async function handleSmsLogin() {
     ElMessage.success('登录成功')
     await navigateByRole(res.user?.roleType || smsRole.value)
   } catch (e) {
-    const msg = e.response?.data?.message || e.message || ''
-    if (msg.includes('角色') || e.response?.data?.code === 40009) {
-      ElMessage.info('请选择角色后重试')
-    } else { ElMessage.error(loginErrorText(e)) }
+    // 未注册手机号（40012）：短信登录不再自动建号 → 跳注册页并回填手机号
+    if (e.response?.data?.code === 40012) {
+      ElMessageBox.confirm('该手机号尚未注册，是否前往注册？', '未注册', {
+        confirmButtonText: '去注册', cancelButtonText: '取消', type: 'info'
+      }).then(() => {
+        // 验证码已通过 login-sms 校验（后端保留未消费），复用到注册页省一次重发、避免撞 60s 频控
+        sessionStorage.setItem('reg_prefill_code', smsCode.value)
+        router.push({ path: '/register', query: { phone: smsPhone.value } })
+      }).catch(() => {})
+    } else {
+      ElMessage.error(loginErrorText(e))
+    }
     resetCaptcha()
   }
   smsLoading.value = false
