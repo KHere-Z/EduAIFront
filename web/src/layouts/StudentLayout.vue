@@ -11,6 +11,9 @@
       </div>
       <div class="top-user">
         <span class="top-points" @click="$router.push('/student/recharge')">💰 {{ pointsStore.points }}</span>
+        <span class="top-member" :class="{ active: memberStore.active }" @click="$router.push('/student/recharge')">
+          {{ memberStore.active ? '👑 会员' : '开通会员' }}
+        </span>
         <span class="top-profile" @click="$router.push('/student/profile')" title="个人中心">
           <span class="tp-avatar" :style="{ background: avatarColor }">
             <img v-if="auth.user?.avatar" :src="auth.user.avatar" class="tp-photo" alt="" />
@@ -35,6 +38,9 @@
       <router-view />
     </main>
 
+    <!-- 体验会员提示（新用户，渐隐出场） -->
+    <TrialBanner />
+
     <!-- 背景动画 -->
     <div v-if="bgTheme === 'default'" class="bg-anim">
       <div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div>
@@ -46,11 +52,14 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'; import { useRoute, useRouter } from 'vue-router'; import { useAuthStore } from '@/store/auth'
 import { usePointsStore } from '@/store/points'
+import { useMembershipStore } from '@/store/membership'
 import BgThemeCanvas from '@/components/BgThemeCanvas.vue'
+import TrialBanner from '@/components/TrialBanner.vue'
 import http from '@/api/request'
 const route = useRoute(); const router = useRouter(); const auth = useAuthStore()
 const pointsStore = usePointsStore()
-onMounted(() => pointsStore.refresh())
+const memberStore = useMembershipStore()
+onMounted(() => { pointsStore.refresh(); memberStore.refresh() })
 const userInitial = computed(() => (auth.user?.realName || '同')[0])
 const avatarColor = computed(() => hashColor(auth.user?.realName || '同学'))
 function hashColor(s) { const h = (s||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0); return `hsl(${h%360},60%,58%)` }
@@ -112,6 +121,9 @@ function logout() { auth.logout(); router.push('/login') }
 .tp-arrow { font-size: 10px; color: #999; }
 .top-points { display: inline-flex; align-items: center; padding: 2px 12px; border-radius: 12px; font-size: 12px; color: #F59E0B; cursor: pointer; background: rgba(245,158,11,.1); margin-right: 8px; font-weight: 600; transition: all .2s; }
 .top-points:hover { background: rgba(245,158,11,.2); }
+.top-member { display: inline-flex; align-items: center; padding: 2px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; cursor: pointer; margin-right: 8px; transition: all .2s; color: #6366F1; background: rgba(99,102,241,.1); }
+.top-member:hover { background: rgba(99,102,241,.2); }
+.top-member.active { color: #B45309; background: linear-gradient(135deg, rgba(245,158,11,.16), rgba(251,191,36,.16)); border: 1px solid rgba(245,158,11,.35); }
 .logout-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 16px; font-size: 12px; color: #EF4444; cursor: pointer; background: rgba(239,68,68,.08); transition: all .2s; font-weight: 500; }
 .logout-btn:hover { background: rgba(239,68,68,.18); }
 /* 标签导航 — 横向滚动 */
