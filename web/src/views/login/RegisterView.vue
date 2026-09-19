@@ -92,6 +92,8 @@ async function sendCode() {
   sending.value = true
   try {
     await sendSmsCode(form.phone)
+    // 重发即作废旧码：后端 sendSms 是无条件覆盖，不清空会让用户拿旧码提交而报「验证码错误」
+    smsCode.value = ''
     countdown.value = 60
     const t = setInterval(() => { countdown.value--; if (countdown.value <= 0) clearInterval(t) }, 1000)
     ElMessage.success('验证码已发送')
