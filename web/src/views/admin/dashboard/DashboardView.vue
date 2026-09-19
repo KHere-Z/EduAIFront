@@ -4,6 +4,10 @@
     <el-row :gutter="20" class="mb-lg">
       <el-col :span="12" v-for="s in stats" :key="s.label"><el-card shadow="hover" class="stat-card"><div class="stat-num" :style="{color:s.color}">{{ s.value }}</div><div class="stat-label">{{ s.label }}</div></el-card></el-col>
     </el-row>
+    <div class="rt-head">👥 活跃用户（登录口径）<span class="rt-tip">基于 last_login 统计，略低于真实访问量</span></div>
+    <el-row :gutter="20" class="mb-lg">
+      <el-col :span="12" v-for="a in activeStats" :key="a.label"><el-card shadow="hover" class="stat-card"><div class="stat-num" :style="{color:a.color}">{{ a.value }}</div><div class="stat-label">{{ a.label }}</div></el-card></el-col>
+    </el-row>
     <div class="rt-head">📈 实时数据 <span class="rt-tip">每 30s 自动刷新</span></div>
     <el-row :gutter="20" class="mb-lg">
       <el-col :xs="24" :sm="12" :md="4" v-for="r in realtimeStats" :key="r.label"><el-card shadow="hover" class="stat-card"><div class="stat-num" :style="{color:r.color}">{{ r.value }}</div><div class="stat-label">{{ r.label }}</div></el-card></el-col>
@@ -33,6 +37,10 @@ onBeforeUnmount(() => { if (rtTimer) clearInterval(rtTimer) })
 const stats = computed(() => [
   { label:'老师总数', value: data.value?.teacherCount ?? 0, color:'#6366F1' },
   { label:'学生总数', value: data.value?.studentCount ?? 0, color:'#67C23A' }
+])
+const activeStats = computed(() => [
+  { label:'日活人数（今日）', value: data.value?.dailyActiveUsers ?? 0, color:'#409EFF' },
+  { label:'月活人数（近30天）', value: data.value?.monthlyActiveUsers ?? 0, color:'#8B5CF6' }
 ])
 const realtimeStats = computed(() => [
   { label:'当前在线人数', value: realtime.value?.onlineCount ?? 0, color:'#409EFF' },
