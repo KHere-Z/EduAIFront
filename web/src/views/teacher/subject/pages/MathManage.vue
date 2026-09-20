@@ -20,6 +20,7 @@
       <el-tab-pane label="📋 题库管理" name="questions">
         <div class="mb-lg filter-bar">
           <el-input v-model="qSearch" placeholder="搜索题目..." :prefix-icon="Search" style="width:180px" clearable/>
+          <el-select v-model="qOwnerFilter" placeholder="全部题目" clearable style="width:120px"><el-option label="全部题目" value=""/><el-option label="我上传的" value="mine"/><el-option label="其他上传" value="others"/></el-select>
           <el-select v-model="qGradeFilter" placeholder="年级·学期" clearable style="width:160px" @change="qKpFilter=null"><el-option v-for="g in grades" :key="g" :label="g" :value="g"/></el-select>
           <el-select v-model="qKpFilter" placeholder="知识点" clearable style="width:140px" :disabled="!qGradeFilter"><el-option v-for="k in filteredKpsForGrade" :key="k.id" :label="k.name" :value="k.id"/></el-select>
           <el-select v-model="qTypeFilter" placeholder="来源" clearable style="width:80px"><el-option label="错题" value="WRONG"/><el-option label="新题" value="NEW"/></el-select>
@@ -54,7 +55,7 @@
           <span style="margin-left:12px;font-size:12px;color:#666">共享 <el-switch v-model="upShared" size="small" style="margin-left:4px"/></span>
         </el-form-item>
             <el-form-item label="题目内容">
-              <el-input v-model="upText" type="textarea" :rows="4" placeholder="粘贴题目文字或图片（Ctrl+V）" @paste="onUpPaste"/>
+              <el-input v-model="upText" type="textarea" :rows="4" placeholder="粘贴题目文字或图片（Ctrl+V），也可直接拖拽图片进来" @paste="onUpPaste" @dragover="onDragOverImages" @drop="e => handleDrop(e, receiveUpImage)"/>
               <div v-if="upImages.length" class="up-imgs">
                 <div v-for="(img,i) in upImages" :key="i" class="up-img-item"><img :src="img.url"/><span class="up-img-del" @click="upImages.splice(i,1)">✕</span></div>
               </div>
@@ -62,17 +63,17 @@
             </el-form-item>
             <!-- OCR 预览 -->
             <template v-if="upPreviewShow">
-              <el-form-item label="题目编辑"><el-input v-model="upRawOcr" type="textarea" :rows="6" placeholder="OCR识别结果，可修改（Ctrl+V粘贴图片）" @paste="onContentPaste"/></el-form-item>
+              <el-form-item label="题目编辑"><el-input v-model="upRawOcr" type="textarea" :rows="6" placeholder="OCR识别结果，可修改（Ctrl+V粘贴图片或拖拽图片）" @paste="onContentPaste" @dragover="onDragOverImages" @drop="e => handleDrop(e, receiveUpRawOcr)"/></el-form-item>
               <el-form-item label="题目预览"><div class="up-preview-box" v-html="upPreviewHtml || '暂无预览'"></div></el-form-item>
               <el-form-item label="难度"><el-select v-model="upDifficulty" style="width:100%"><el-option label="简单" value="EASY"/><el-option label="中等" value="MEDIUM"/><el-option label="困难" value="HARD"/></el-select></el-form-item>
               <el-form-item label="知识点"><el-select v-model="upKpIds" multiple placeholder="选择" style="width:100%"><el-option v-for="k in kps" :key="k.id" :label="k.name" :value="k.id"/></el-select></el-form-item>
               <el-form-item label="题目配图">
-              <el-input v-model="upDiagramText" type="textarea" :rows="2" placeholder="直接粘贴图片（Ctrl+V）或点击上传" @paste="onUpDiagramPaste"/>
+              <el-input v-model="upDiagramText" type="textarea" :rows="2" placeholder="直接粘贴图片（Ctrl+V）、拖拽图片，或点击上传" @paste="onUpDiagramPaste" @dragover="onDragOverImages" @drop="e => handleDrop(e, receiveUpDiagram)"/>
               <div style="margin-top:4px"><el-upload action="#" :auto-upload="false" :show-file-list="false" accept="image/*" @change="onUpDiagram"><el-button size="small">📁 上传图片</el-button></el-upload><el-button size="small" style="margin-left:8px" @click="openCropDiagram">✂️ 从上传图截图</el-button></div>
               <img v-if="upDiagramUrl" :src="upDiagramUrl" style="max-width:200px;max-height:120px;border-radius:6px;margin-top:6px;display:block"/><el-button v-if="upDiagramUrl" size="small" type="danger" text @click="upDiagramUrl=''">删除</el-button>
             </el-form-item>
             </template>
-            <el-form-item label="上传解析"><el-input v-model="upSolRaw" type="textarea" :rows="5" placeholder="直接输入解析文字，或粘贴图片（Ctrl+V）" @paste="onUpSolPaste"/><div v-if="upSolImages.length" class="up-imgs"><div v-for="(img,i) in upSolImages" :key="i" class="up-img-item"><img :src="img.url"/><span class="up-img-del" @click="upSolImages.splice(i,1)">✕</span></div></div><div style="margin-top:4px"><el-button size="small" type="primary" @click="doSolOCR" :loading="upSolLoading" :disabled="!upSolImages.length">🔍 OCR解析</el-button><el-button size="small" @click="doSolDirect" :disabled="!(upSolText.value||'').trim()&&!upSolImages.length">📋 直接上传</el-button></div></el-form-item>
+            <el-form-item label="上传解析"><el-input v-model="upSolRaw" type="textarea" :rows="5" placeholder="直接输入解析文字，或粘贴/拖拽图片（Ctrl+V）" @paste="onUpSolPaste" @dragover="onDragOverImages" @drop="e => handleDrop(e, receiveUpSolImage)"/><div v-if="upSolImages.length" class="up-imgs"><div v-for="(img,i) in upSolImages" :key="i" class="up-img-item"><img :src="img.url"/><span class="up-img-del" @click="upSolImages.splice(i,1)">✕</span></div></div><div style="margin-top:4px"><el-button size="small" type="primary" @click="doSolOCR" :loading="upSolLoading" :disabled="!upSolImages.length">🔍 OCR解析</el-button><el-button size="small" @click="doSolDirect" :disabled="!(upSolText.value||'').trim()&&!upSolImages.length">📋 直接上传</el-button></div></el-form-item>
             <el-form-item label="解析预览" v-if="upSolPreview"><div class="up-preview-box" v-html="upSolPreview"></div></el-form-item>
             <el-form-item label=""><el-button type="primary" @click="submitUpload">✅ 提交</el-button><el-button @click="resetUp">重置</el-button></el-form-item>
           </el-form>
@@ -241,7 +242,7 @@
     </el-dialog>
 
     <el-dialog v-model="showQDetail" title="题目详情" width="820px">
-      <div v-if="currentQ" class="q-detail"><el-row :gutter="20"><el-col :span="12"><h4>📷 原上传图片</h4><div class="img-box"><img v-if="currentQ.originalImageUrl" :src="imgUrl(currentQ.originalImageUrl)" class="detail-img"/><el-empty v-else description="无原图" :image-size="80"/></div><h4 class="mt-lg">🖼 配图</h4><div class="img-box"><img v-if="currentQ.diagramImageUrl" :src="imgUrl(currentQ.diagramImageUrl)" class="detail-img"/><el-empty v-else description="无配图" :image-size="60"/></div><div class="mt-sm" v-if="qIsOwner"><el-upload action="#" :auto-upload="false" :show-file-list="false" accept="image/*" @change="uploadDiagram"><el-button size="small">📁 上传配图</el-button></el-upload></div></el-col><el-col :span="12"><h4>📝 AI 识别</h4><div v-if="!qIsOwner" class="text-box" v-html="currentQ._titleHtml || currentQ.title"></div><template v-else><div v-if="!currentQ._titleEditing"><div class="text-box" v-html="currentQ._titleHtml || currentQ.title"></div><el-button size="small" text type="primary" @click="currentQ._titleEditing=true">✏️ 编辑</el-button></div><div v-else><el-input v-model="currentQ.title" type="textarea" :rows="4" placeholder="编辑题目内容..."/><div style="margin-top:4px"><el-button size="small" type="primary" @click="confirmTitleEdit">✅ 确认</el-button></div></div></template><h4 class="mt-lg">🏷 知识点</h4><el-select v-model="currentQ.kpIds" multiple placeholder="选择" style="width:100%" :disabled="!qIsOwner"><el-option v-for="k in kps" :key="k.id" :label="k.name" :value="k.id"/></el-select><h4 class="mt-lg">📊 难度</h4><el-select v-model="currentQ.difficulty" style="width:100%" :disabled="!qIsOwner"><el-option label="简单" value="EASY"/><el-option label="中等" value="MEDIUM"/><el-option label="困难" value="HARD"/></el-select><h4 class="mt-lg">👨‍🏫 老师解析</h4><div v-if="!qIsOwner" class="text-box" v-html="currentQ._taPreview || '暂无解析'"></div><template v-else><div v-if="!currentQ._taEditing" style="margin-bottom:8px"><div class="text-box" v-html="currentQ._taPreview || '暂无解析'"></div><el-button size="small" text type="primary" @click="currentQ._taEditing=true">✏️ 编辑</el-button></div><div v-else><el-input v-model="currentQ.teacherAnalysis" type="textarea" :rows="4" placeholder="输入文字解析...（可直接粘贴图片）" @paste="onTeacherPaste"/><div style="margin-top:4px"><el-button size="small" type="primary" @click="previewTeacherAnalysis(); currentQ._taEditing=false">✅ 确认</el-button></div></div></template><div v-if="qIsOwner && currentQ.source !== 'STUDENT'" style="margin-top:16px"><span style="font-size:14px;font-weight:600">🌐 共享</span><el-radio-group v-model="currentQ.shared" style="margin-left:8px"><el-radio :value="true">共享</el-radio><el-radio :value="false">私有</el-radio></el-radio-group></div><h4 class="mt-lg" v-if="currentQ.solution">📝 AI解答</h4><div class="text-box" v-if="currentQ.solution" v-html="currentQ._solutionHtml || currentQ.solution"></div><el-button v-if="qIsOwner" type="primary" size="small" class="mt-lg" @click="saveQDetail">保存修改</el-button></el-col></el-row></div>
+      <div v-if="currentQ" class="q-detail"><el-row :gutter="20"><el-col :span="12"><h4>📷 原上传图片</h4><div class="img-box"><img v-if="currentQ.originalImageUrl" :src="imgUrl(currentQ.originalImageUrl)" class="detail-img"/><el-empty v-else description="无原图" :image-size="80"/></div><h4 class="mt-lg">🖼 配图</h4><div class="img-box"><img v-if="currentQ.diagramImageUrl" :src="imgUrl(currentQ.diagramImageUrl)" class="detail-img"/><el-empty v-else description="无配图" :image-size="60"/></div><div class="mt-sm" v-if="qIsOwner"><el-upload action="#" :auto-upload="false" :show-file-list="false" accept="image/*" @change="uploadDiagram"><el-button size="small">📁 上传配图</el-button></el-upload><el-button size="small" style="margin-left:8px" @click="openCropQDiagram">✂️ 裁剪原图</el-button></div></el-col><el-col :span="12"><h4>📝 AI 识别</h4><div v-if="!qIsOwner" class="text-box" v-html="currentQ._titleHtml || currentQ.title"></div><template v-else><div v-if="!currentQ._titleEditing"><div class="text-box" v-html="currentQ._titleHtml || currentQ.title"></div><el-button size="small" text type="primary" @click="currentQ._titleEditing=true">✏️ 编辑</el-button></div><div v-else><el-input v-model="currentQ.title" type="textarea" :rows="4" placeholder="编辑题目内容..."/><div style="margin-top:4px"><el-button size="small" type="primary" @click="confirmTitleEdit">✅ 确认</el-button></div></div></template><h4 class="mt-lg">🏷 知识点</h4><el-select v-model="currentQ.kpIds" multiple placeholder="选择" style="width:100%" :disabled="!qIsOwner"><el-option v-for="k in kps" :key="k.id" :label="k.name" :value="k.id"/></el-select><h4 class="mt-lg">📊 难度</h4><el-select v-model="currentQ.difficulty" style="width:100%" :disabled="!qIsOwner"><el-option label="简单" value="EASY"/><el-option label="中等" value="MEDIUM"/><el-option label="困难" value="HARD"/></el-select><h4 class="mt-lg">👨‍🏫 老师解析</h4><div v-if="!qIsOwner" class="text-box" v-html="currentQ._taPreview || '暂无解析'"></div><template v-else><div v-if="!currentQ._taEditing" style="margin-bottom:8px"><div class="text-box" v-html="currentQ._taPreview || '暂无解析'"></div><el-button size="small" text type="primary" @click="currentQ._taEditing=true">✏️ 编辑</el-button></div><div v-else><el-input v-model="currentQ.teacherAnalysis" type="textarea" :rows="4" placeholder="输入文字解析...（可直接粘贴图片）" @paste="onTeacherPaste"/><div style="margin-top:4px"><el-button size="small" type="primary" @click="previewTeacherAnalysis(); currentQ._taEditing=false">✅ 确认</el-button></div></div></template><div v-if="qIsOwner && currentQ.source !== 'STUDENT'" style="margin-top:16px"><span style="font-size:14px;font-weight:600">🌐 共享</span><el-radio-group v-model="currentQ.shared" style="margin-left:8px"><el-radio :value="true">共享</el-radio><el-radio :value="false">私有</el-radio></el-radio-group></div><h4 class="mt-lg" v-if="currentQ.solution">📝 AI解答</h4><div class="text-box" v-if="currentQ.solution" v-html="currentQ._solutionHtml || currentQ.solution"></div><el-button v-if="qIsOwner" type="primary" size="small" class="mt-lg" @click="saveQDetail">保存修改</el-button></el-col></el-row></div>
     </el-dialog>
 
     <el-dialog v-model="showCrop" title="✂️ 截图配图" width="820px" :close-on-click-modal="false" destroy-on-close>
@@ -491,18 +492,33 @@ function onCorrUpload(f) { if (f?.raw) corrImgs.value.push({ url:URL.createObjec
 function onAnswerUpload(f) { if (f?.raw) answerImgs.value.push({ url:URL.createObjectURL(f.raw), file:f.raw }) }
 async function saveCorrect() {
   const s = corrSub.value; if (!s||!hwCurrent.value) return
+  // 两个 POST 各自 catch，但失败必须计数：原来 catch 完无条件弹「已保存」并关弹窗，
+  // 老师看到成功、实际一个字都没存。批改图现在走 base64（不再存 blob: 死引用），
+  // 单张 40–120KB，多张就撞 homework 那几个 TEXT(64KB) 列的 1406 —— 而这正是最容易失败的一次。
+  let failed = 0
   // 批改图片：只上传新增的
   const newCorr = corrImgs.value.filter(i => !i.existing)
   if (newCorr.length) {
     for (const f of newCorr) {
       const img = await fileToBase64(f.file||f.url)
-      try { await http.post(`/teacher/homework/${hwCurrent.value.id}/correct`, { studentId:s.studentId, correctedImageUrl:img }) } catch {}
+      // 成功即标 existing：/correct 是「追加」语义，重试时不能把已经存进去的那张再发一次，
+      // 否则失败重试会变成重复批改图。标上以后重试只补真正失败的那几张。
+      try { await http.post(`/teacher/homework/${hwCurrent.value.id}/correct`, { studentId:s.studentId, correctedImageUrl:img }); f.existing = true } catch { failed++ }
     }
   }
   // 答案解析：完整列表（已有+新增）
   if (answerImgs.value.length) {
-    const allUrls = answerImgs.value.map(i => i.url)
-    try { await http.post(`/teacher/homework/${hwCurrent.value.id}/answer`, { answerFileUrl:allUrls.join('\n'), answerFileName:'批改解析' }) } catch {}
+    // 新增项的 i.url 是 blob: URL，直接 join 落库同样是死引用（与配图那个同一个错）。
+    // fileToBase64 对 File 转 base64、对已有 URL 原样返回，正好两种情况通吃；
+    // 已被后端落成 URL 的旧项原样带回，也在这一次 PUT 里顺带完成迁移。
+    const allUrls = await Promise.all(answerImgs.value.map(i => fileToBase64(i.file || i.url)))
+    try { await http.post(`/teacher/homework/${hwCurrent.value.id}/answer`, { answerFileUrl:allUrls.join('\n'), answerFileName:'批改解析' }) } catch { failed++ }
+  }
+  if (failed) {
+    // 拦截器已经弹过红条说明了原因，这里只补它没说的事：失败了几张、弹窗没关、
+    // 以及「已上传成功的那几张不需要重传」——所以不弹成功、不关窗。
+    ElMessage.warning(`${failed} 项未保存成功，弹窗保持打开，可重试`)
+    return
   }
   ElMessage.success('已保存'); showCorrect.value = false; loadHw()
 }
@@ -527,6 +543,8 @@ async function delKp(row){ await ElMessageBox.confirm("删除","确认",{type:"w
 async function batchDelKps(){ if(!kpSelection.value.length)return; await ElMessageBox.confirm(`确认删除${kpSelection.value.length}个知识点？`,"批量删除",{type:"warning"}); try { for(const k of kpSelection.value){ await deleteKnowledgePoint(k.id) }; loadKps(); kpSelection.value=[]; ElMessage.success("已删除") } catch(e) { ElMessage.error(e.message||"失败") } }
 
 const qSearch=ref(''); const qKpFilter=ref(null); const qGradeFilter=ref(''); const qTypeFilter=ref(''); const qQuestionType=ref(''); const qStudentFilter=ref(null); const qSharedFilter=ref(null); const qDateFilter=ref(''); const qPage=ref(1)
+// 上传者筛选：'' = 全部题目 / 'mine' = 我上传的 / 'others' = 其他上传
+const qOwnerFilter=ref('')
 const showQDetail=ref(false); const currentQ=ref(null)
 const qIsOwner=computed(()=>canManageQ(currentQ.value))
 const filteredKpsForGrade = computed(() => qGradeFilter.value ? kps.value.filter(k => k.gradeLevel === qGradeFilter.value) : kps.value)
@@ -539,6 +557,9 @@ const questions=ref([
 const filteredQuestions=computed(()=>{
   const list=questions.value.filter(q=>{
     if(qSearch.value&&!q.title.includes(qSearch.value))return false
+    // 上传者：判据与「详情/删除」权限用的 isOwnQ 同一个（QuestionVO.teacherId 对 users.id）
+    if(qOwnerFilter.value==='mine'&&!isOwnQ(q))return false
+    if(qOwnerFilter.value==='others'&&isOwnQ(q))return false
     if(qKpFilter.value&&!q.kpIds.includes(qKpFilter.value))return false
     if(qGradeFilter.value&&q.gradeLevel!==qGradeFilter.value)return false
     if(qTypeFilter.value&&q.type!==qTypeFilter.value)return false
@@ -548,6 +569,8 @@ const filteredQuestions=computed(()=>{
     if(qDateFilter.value&&q.createdAt!==qDateFilter.value)return false;return true
   }); return list
 })
+// 改任一筛选条件都回到第 1 页：qPage 原本不重置，停在第 3 页再改条件会切出一张空表
+watch([qSearch,qOwnerFilter,qKpFilter,qGradeFilter,qTypeFilter,qQuestionType,qStudentFilter,qSharedFilter,qDateFilter],()=>{qPage.value=1})
 const pagedQuestions=computed(()=>{
   const start=(qPage.value-1)*15; return filteredQuestions.value.slice(start,start+15)
 })
@@ -607,7 +630,14 @@ function compressAndSetImg(blob) {
 }
 async function delQuestion(row){ try { await ElMessageBox.confirm('确认删除该题目？','删除',{type:'warning'}); await deleteTeacherQuestion(row.id); ElMessage.success('已删除'); loadQuestions(); qSelection.value=[] } catch(e) { if(e!=='cancel') ElMessage.error(e.message||'删除失败') } }
 async function batchDelQuestions(){ if(!qSelection.value.length)return; await ElMessageBox.confirm(`确认删除${qSelection.value.length}道题？`,"批量删除",{type:"warning"}); try { for(const q of qSelection.value){ await deleteTeacherQuestion(q.id) }; loadQuestions(); qSelection.value=[]; ElMessage.success("已删除") } catch(e) { ElMessage.error(e.message||"失败") } }
-function uploadDiagram(file){ if(!currentQ.value)return; currentQ.value.diagramImageUrl=URL.createObjectURL(file.raw); currentQ.value.diagramStatus='MANUAL'; ElMessage.success('配图已更新') }
+// 必须转成 dataURL：原来存的是 URL.createObjectURL 出来的 blob: URL，
+// saveQDetail 会把它整个 PUT 给后端 —— blob: 只在当前浏览器会话有效，落库即死引用，
+// 刷新后就变成裂图。裁剪入口用的就是 dataURL，这里对齐。
+async function uploadDiagram(file){
+  if(!currentQ.value||!file?.raw)return
+  currentQ.value.diagramImageUrl=await blobToCompressedDataUrl(file.raw)
+  currentQ.value.diagramStatus='MANUAL'; ElMessage.success('配图已更新，记得点「保存修改」')
+}
 async function saveQDetail(){
   if(!currentQ.value) return
   try {
@@ -637,13 +667,22 @@ const upSolText=ref(''); const upSolImages=ref([]); const upSolLoading=ref(false
 const uploadMode=ref('single')
 // === 截图配图 ===
 const showCrop=ref(false); const cropSrc=ref(''); const cropImgEl=ref(null); const cropWrap=ref(null); const cropReady=ref(false)
+// 同一个裁剪弹窗服务两个入口：'upload'=单题上传表单的配图，'detail'=题目详情里改已有题目的配图。
+// 只区分「裁哪张图」「裁完写到哪」，框选与缩放逻辑完全共用。
+const cropTarget=ref('upload')
 const cropRect=reactive({x:0,y:0,w:0,h:0})
 let cropDragHandle=''; let cropDragStart=null
 const cropBoxStyle=computed(()=>({left:cropRect.x+'px',top:cropRect.y+'px',width:cropRect.w+'px',height:cropRect.h+'px'}))
 function openCropDiagram(){
   const img=upImages.value[0]
   if(!img){ ElMessage.warning('请先在「题目内容」上传或粘贴原图'); return }
-  cropSrc.value=img.url; cropReady.value=false; showCrop.value=true
+  cropSrc.value=img.url; cropTarget.value='upload'; cropReady.value=false; showCrop.value=true
+}
+// 题目详情：从该题的「原上传图片」框选配图，供编辑自己上传的题目时用
+function openCropQDiagram(){
+  const url=imgUrl(currentQ.value?.originalImageUrl)
+  if(!url){ ElMessage.warning('该题没有原上传图片，无法裁剪'); return }
+  cropSrc.value=url; cropTarget.value='detail'; cropReady.value=false; showCrop.value=true
 }
 function initCrop(){
   const img=cropImgEl.value; if(!img) return
@@ -686,7 +725,67 @@ function confirmCrop(){
   const sx=img.naturalWidth/(img.clientWidth||img.naturalWidth); const sy=img.naturalHeight/(img.clientHeight||img.naturalHeight)
   const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(cropRect.w*sx)); c.height=Math.max(1,Math.round(cropRect.h*sy))
   c.getContext('2d').drawImage(img,cropRect.x*sx,cropRect.y*sy,cropRect.w*sx,cropRect.h*sy,0,0,c.width,c.height)
-  upDiagramUrl.value=c.toDataURL('image/png'); showCrop.value=false; ElMessage.success('配图已截取')
+  let dataUrl
+  // 详情入口裁的是服务器上的原图，若它是跨域绝对地址，画布被污染，toDataURL 会抛 SecurityError
+  try { dataUrl=c.toDataURL('image/png') } catch { ElMessage.error('原图跨域，无法在前端裁剪，请改用「上传配图」'); return }
+  if(cropTarget.value==='detail'){
+    if(!currentQ.value) return
+    // 与「上传配图」同一语义：先改内存，点「保存修改」才提交
+    currentQ.value.diagramImageUrl=dataUrl; currentQ.value.diagramStatus='MANUAL'
+    ElMessage.success('配图已裁剪，记得点「保存修改」')
+  } else {
+    upDiagramUrl.value=dataUrl; ElMessage.success('配图已截取')
+  }
+  showCrop.value=false
+}
+
+// ══════════ 拖拽图片：与粘贴共用同一套「收图」逻辑 ══════════
+// 只在拖的是文件时才拦截默认行为 —— 拖纯文字进文本框的原生插入必须保留，
+// 否则无条件 preventDefault 会把「拖一段文字到输入框」也弄坏。
+function onDragOverImages(e) {
+  const types = Array.from(e.dataTransfer?.types || [])
+  if (types.includes('Files')) e.preventDefault()
+}
+function handleDrop(e, receive) {
+  const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'))
+  if (!files.length) return          // 不含图片则不接管，交给浏览器默认行为
+  e.preventDefault()
+  files.forEach(f => receive(f))
+}
+
+// 各输入框的「收图」函数（粘贴与拖拽共用）
+function receiveUpImage(blob) {
+  upImages.value.push({ url: URL.createObjectURL(blob), file: blob })
+}
+function receiveUpSolImage(blob) {
+  upSolImages.value.push({ url: URL.createObjectURL(blob), file: blob })
+  upSolText.value = 'OCR图片'  // 标记有图片内容
+}
+// 同上：upDiagramUrl 会随 uploadTeacherQuestion 落库，不能存 blob: URL
+async function receiveUpDiagram(blob) {
+  upDiagramUrl.value = await blobToCompressedDataUrl(blob)
+}
+// 图片压到 800px 宽、转 JPEG dataURL（与原有粘贴逻辑一致）
+function blobToCompressedDataUrl(blob, maxW = 800) {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const img = new Image()
+      img.onload = () => {
+        let w = img.width, h = img.height
+        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW }
+        const c = document.createElement('canvas'); c.width = w; c.height = h
+        c.getContext('2d').drawImage(img, 0, 0, w, h)
+        resolve(c.toDataURL('image/jpeg', 0.7))
+      }
+      img.src = reader.result
+    }
+    reader.readAsDataURL(blob)
+  })
+}
+async function receiveUpRawOcr(blob) {
+  const dataUrl = await blobToCompressedDataUrl(blob)
+  upRawOcr.value += `\n![](${dataUrl})\n`
 }
 
 function onUpSolPaste(e) {
@@ -694,9 +793,7 @@ function onUpSolPaste(e) {
   for (const item of items) {
     if (item.type.startsWith('image/')) {
       e.preventDefault()
-      const blob = item.getAsFile()
-      upSolImages.value.push({ url: URL.createObjectURL(blob), file: blob })
-      upSolText.value = 'OCR图片'  // 标记有图片内容
+      receiveUpSolImage(item.getAsFile())
       return
     }
   }
@@ -734,7 +831,7 @@ function onUpDiagramPaste(e) {
   for (const item of items) {
     if (item.type.startsWith('image/')) {
       e.preventDefault()
-      upDiagramUrl.value = URL.createObjectURL(item.getAsFile())
+      receiveUpDiagram(item.getAsFile())
       return
     }
   }
@@ -744,28 +841,17 @@ function onContentPaste(e) {
   for (const item of items) {
     if (item.type.startsWith('image/')) {
       e.preventDefault()
-      const blob = item.getAsFile()
-      const reader = new FileReader()
-      reader.onload = () => {
-        const img = new Image()
-        img.onload = () => {
-          const maxW = 800; let w = img.width, h = img.height
-          if (w > maxW) { h = Math.round(h * maxW / w); w = maxW }
-          const c = document.createElement('canvas'); c.width = w; c.height = h
-          c.getContext('2d').drawImage(img, 0, 0, w, h)
-          const dataUrl = c.toDataURL('image/jpeg', 0.7)
-          const ta = e.target; const start = ta.selectionStart
-          const imgMd = `\n![](${dataUrl})\n`
-          // 根据 textarea 的 placeholder 判断是题目还是解析
-          if (ta.placeholder && ta.placeholder.includes('解析')) {
-            upSolRaw.value = upSolRaw.value.slice(0, start) + imgMd + upSolRaw.value.slice(start)
-          } else {
-            upRawOcr.value = upRawOcr.value.slice(0, start) + imgMd + upRawOcr.value.slice(start)
-          }
+      const ta = e.target
+      const start = ta.selectionStart
+      blobToCompressedDataUrl(item.getAsFile()).then(dataUrl => {
+        const imgMd = `\n![](${dataUrl})\n`
+        // 根据 textarea 的 placeholder 判断是题目还是解析
+        if (ta.placeholder && ta.placeholder.includes('解析')) {
+          upSolRaw.value = upSolRaw.value.slice(0, start) + imgMd + upSolRaw.value.slice(start)
+        } else {
+          upRawOcr.value = upRawOcr.value.slice(0, start) + imgMd + upRawOcr.value.slice(start)
         }
-        img.src = reader.result
-      }
-      reader.readAsDataURL(blob)
+      })
       return
     }
   }
@@ -775,8 +861,7 @@ function onUpPaste(e) {
   for (const item of items) {
     if (item.type.startsWith('image/')) {
       e.preventDefault()
-      const blob = item.getAsFile()
-      upImages.value.push({ url: URL.createObjectURL(blob), file: blob })
+      receiveUpImage(item.getAsFile())
       return
     }
   }
@@ -801,7 +886,8 @@ async function doUploadOCR(){
   upPreviewHtml.value = await renderMarkdown(allText)
   upOcrLoading.value=false
 }
-function onUpDiagram(file){ if(file?.raw){ upDiagramUrl.value=URL.createObjectURL(file.raw) } }
+// 走同一个收图函数，避免「上传图片」和「粘贴/拖拽」两条路产出不同格式（一条 dataURL、一条 blob:）
+function onUpDiagram(file){ if(file?.raw) receiveUpDiagram(file.raw) }
 function stripBase64Images(text){
   // 剥离 markdown 里内嵌的 base64 data URL，避免撑爆后端 TEXT(64KB) 列
   const images = []
