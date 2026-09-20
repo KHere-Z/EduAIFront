@@ -74,6 +74,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import http from '@/api/request'
 import { resolveStaticUrl } from '@/utils/url'
+import { parseImageList } from '@/utils/images'
 
 const route = useRoute()
 const subject = computed(() => route.params.subject || 'math')
@@ -95,15 +96,6 @@ async function loadHomeworks() {
     const r = await http.get(`/student/homework?subject=${subject.value}`)
     let list = r?.list||(Array.isArray(r)?r:[])
     list = list.map(h => ({...h, id:h.id||h.homeworkId})).filter(h=>h.id)
-    const parseImageList = (val) => {
-      if (!val) return []
-      if (Array.isArray(val)) return val.map(u => ({ url: u })).filter(i => i.url)
-      const str = String(val)
-      // data URL 含逗号（data:image/jpeg;base64,/9j/...），不能简单 split
-      if (str.startsWith('data:')) return [{ url: str }]
-      // 逗号分隔的普通 URL 列表
-      return str.split(',').map(u => ({ url: u.trim() })).filter(i => i.url)
-    }
     list.forEach(h => {
       h.submittedImages = parseImageList(h.submittedImageUrl)
       h.correctedImages = parseImageList(h.correctedImageUrl)

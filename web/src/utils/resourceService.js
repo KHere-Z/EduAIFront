@@ -17,9 +17,27 @@ const write = (k, v) => localStorage.setItem(k, JSON.stringify(v))
 const uid = () => 'lr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
 const bySort = (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
 
-// API 成功即用 API 结果；失败（含后端未实现 404/500）回退 fallback
+// 后端「接口尚未实现」的信号 —— 只有这些才回退 localStorage：
+//   无响应（网络层失败）/ 404 / 405 / 501 / 5xx 且响应体没有统一业务码 {code,message}
+// 其余一律视为后端真实拒绝（401/403/400/429、带业务码的响应）并上抛，交由调用方如实报错。
+// 不能吞掉真实拒绝：删除被拒时会假报成功，刷新后资源又出现（老师端「没有删除权限」即此症状）。
+const isEndpointUnavailable = (e) => {
+  const res = e?.response
+  if (!res) return true
+  const s = res.status
+  if (s === 404 || s === 405 || s === 501) return true
+  if (s >= 500 && !res.data?.code) return true
+  return false
+}
+
+// API 成功即用 API 结果；接口未实现时回退 fallback；后端明确拒绝时上抛
 const withFallback = async (apiFn, fallbackFn) => {
-  try { const r = await apiFn(); if (r !== undefined && r !== null) return r } catch {}
+  try {
+    const r = await apiFn()
+    if (r !== undefined && r !== null) return r
+  } catch (e) {
+    if (!isEndpointUnavailable(e)) throw e
+  }
   return fallbackFn()
 }
 
@@ -96,15 +114,22 @@ function collectResources(nodeType, nodeId) {
 }
 
 export async function listResources(nodeType, nodeId, opts = {}) {
-  const { page, pageSize, type, year } = opts || {}
+  const { page, pageSize, type, year, mine } = opts || {}
   const params = { nodeType, nodeId }
   if (page != null) params.page = page
   if (pageSize != null) params.pageSize = pageSize
   if (type) params.type = type
   if (year) params.year = year
+  // mine=true：非管理员只返回自己上传的（管理员不受限，故可无条件传）。
+  // 只在管理/上传面板传；学生端 ResourcesView 绝不能传 —— 学生不是上传者，查出来会是空列表。
+  if (mine) params.mine = true
   return withFallback(
     () => api.getResources(params),
     () => {
+      // 此分支有意不处理 mine，别来"补"：兜底写入（addResources）的条目没有上传者 id，
+      // author 一律写死「管理员」，若在此按 author 过滤，老师连自己上传的都会被滤掉，
+      // 结果比现在更糟。故降级态下老师会看到本浏览器 localStorage 里的全部条目 ——
+      // 已知偏差，且仅在后端不可达时出现，不构成跨用户越权。
       let arr = collectResources(nodeType, nodeId)
       if (type) arr = arr.filter(r => r.type === type || r.tag === type)
       if (year) arr = arr.filter(r => String(r.year) === String(year))

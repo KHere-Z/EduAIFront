@@ -196,6 +196,8 @@
         </el-table-column>
         <el-table-column label="操作" width="80">
           <template #default="{ row }">
+            <!-- 列表已按 mine=true 过滤（老师仅见自己上传的），故此处无需再按归属禁用；
+                 万一后端过滤失效，删除会由后端 403 拦下并如实报错，不会静默成功。 -->
             <el-button link type="danger" size="small" @click="onRemoveResource(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -541,7 +543,8 @@ async function loadTextbooks() {
 }
 async function loadChapters() { chapters.value = textbookId.value ? await listChapters(textbookId.value) : [] }
 async function loadSections() { sections.value = chapterId.value ? await listSections(chapterId.value) : [] }
-async function loadResList() { const n = currentNode.value; resList.value = n ? await listResources(n.type, n.id) : [] }
+// mine: true —— 老师只看自己上传的（管理员不限，后端忽略该参数）
+async function loadResList() { const n = currentNode.value; resList.value = n ? await listResources(n.type, n.id, { mine: true }) : [] }
 
 function resetAll() {
   version.value = ''
@@ -663,12 +666,15 @@ async function doUpload() {
 }
 
 async function onRemoveResource(row) {
-  await ElMessageBox.confirm(`确定删除「${row.fileName}」？`, '提示', { type: 'warning' })
   try {
+    await ElMessageBox.confirm(`确定删除「${row.fileName}」？`, '提示', { type: 'warning' })
     await removeResource(row.id)
     ElMessage.success('已删除')
     loadResList()
-  } catch (e) { if (e !== 'cancel') ElMessage.error(e.message || '删除失败') }
+  } catch (e) {
+    // 'cancel'/'close' = 用户取消，不算错误；其余（含后端拒绝）如实提示，不再假报「已删除」
+    if (e !== 'cancel' && e !== 'close') ElMessage.error(e?.message || '删除失败')
+  }
 }
 
 onMounted(loadTextbooks)

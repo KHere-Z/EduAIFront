@@ -128,6 +128,14 @@ import katexCss from 'katex/dist/katex.min.css?inline'
 // pdfjs-dist 为 UMD 包：命名导出可能被 interop 折叠到 default 上，做兜底
 const pdfjsLib = pdfjsImport.getDocument ? pdfjsImport : (pdfjsImport.default || pdfjsImport)
 
+// 错题题号保护：markdown 会把行首「7. 」解析成 <ol><li>，而 <ol> 只认第一项的 start，
+// 后续项一律顺延重编号 —— 试卷上的 3/7/12 会被画成 3/4/5，AI 写的号被当列表标记吃掉。
+// 故把行首的数字标记改写成不会被当成列表的写法，题号原值因此在页面上可见。
+// 注意只匹配「数字 + .、)）」且紧随空白 的情况，`0.5分` 这类小数不会误伤。
+function keepQuestionNumbers(text) {
+  return (text || '').replace(/^([ \t]*)(\d+)\s*[.、)）]\s+/gm, (_, indent, n) => `${indent}**第${n}题** `)
+}
+
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -168,7 +176,7 @@ async function loadPaper(id) {
     const parsed = parseResult(raw)
     panelData.value.overview = await renderMarkdown(strip(parsed.overview || raw))
     panelData.value.analysis = await renderMarkdown(strip(parsed.analysis||r.suggestions||''))
-    panelData.value.wrongQuestionsHtml = await renderMarkdown(strip(parsed.wrongQuestions || ''))
+    panelData.value.wrongQuestionsHtml = await renderMarkdown(keepQuestionNumbers(strip(parsed.wrongQuestions || '')))
     panelData.value.wrongQuestionsRaw = parsed.wrongQuestions || ''
     panelData.value.scoreRoadmapRaw = parsed.scoreRoadmap || ''
     panelData.value.abilities = parsed.abilities || ''
@@ -337,7 +345,7 @@ async function send() {
 指出错题涉及的知识点和错误类型，分析薄弱环节。
 [/analysis]
 [wrongQuestions]
-逐题分析每道错题，格式：题号. 题目简述 — 错误原因（1-2句）— 正确思路（1-2句）。每道错题用空行分隔。
+逐题分析每道错题，每题一段。题号必须使用试卷上印的题号，不要从 1 重新编号。格式：第N题 题目简述 — 错误原因（1-2句）— 正确思路（1-2句）。每道错题用空行分隔。
 [/wrongQuestions]
 [scoreRoadmap]
 从易到难列出提分路径，每行一条：知识点名称 | 预计提分 | 建议用时 | 优先级(高/中/低)。至少5条。
@@ -385,7 +393,7 @@ async function send() {
     panelData.value = {
       overview: await clean(parsed.overview || rawText),
       analysis: await clean(parsed.analysis||''),
-      wrongQuestionsHtml: await renderMarkdown((wqText||'').replace(/\[\/?[a-zA-Z]+\]/g,'')),
+      wrongQuestionsHtml: await renderMarkdown(keepQuestionNumbers((wqText||'').replace(/\[\/?[a-zA-Z]+\]/g,''))),
       wrongQuestionsRaw: wqText,
       scoreRoadmapRaw: rmText,
       abilities: parsed.abilities || '',

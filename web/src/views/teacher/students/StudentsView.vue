@@ -58,6 +58,15 @@
 
     <el-card class="mb-lg">
       <el-table :data="filteredStudents" stripe size="small" v-loading="loading">
+        <!-- 空态：区分「一个学生都没有」和「筛选没匹配上」——只有前者才该引导 UID 关联 -->
+        <template #empty>
+          <div v-if="!students.length" class="stu-empty">
+            <p class="se-title">还没有学生</p>
+            <p class="se-sub">学生注册后不会自动出现在这里。把你的 UID 发给学生，学生在「个人中心 → 添加老师」发起关联、你同意后，档案会自动出现在这里。</p>
+            <p class="se-uid">我的 UID：<strong>{{ uidDisplay }}</strong><el-button size="small" text type="primary" @click="copyUid">📋 复制</el-button></p>
+          </div>
+          <el-empty v-else description="没有匹配的学生" :image-size="60" />
+        </template>
         <el-table-column type="index" label="#" width="50" align="center" />
         <el-table-column prop="name" label="姓名" width="85" />
         <el-table-column prop="gender" label="性别" width="55" align="center" />
@@ -166,6 +175,11 @@
             <el-option v-for="s in students" :key="s.id" :label="`${s.name} · ${s.grade} · ${s.school||''} · 余${s.hoursLeft||0}课时`" :value="s.id" />
           </el-select>
         </el-form-item>
+        <div class="uid-tip">
+          找不到学生？老师端不再手工建档案。把你的 UID <strong>{{ uidDisplay }}</strong> 发给学生，
+          学生在「个人中心 → 添加老师」发起关联后即出现在这里。
+          <el-button size="small" text type="primary" @click="copyUid">📋 复制 UID</el-button>
+        </div>
 
         <!-- 学生信息（选择后自动回填，只读） -->
         <el-row :gutter="16">
@@ -274,10 +288,19 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
-import { Search, Plus, ArrowLeft, ArrowRight, Check, Calendar, Bell } from '@element-plus/icons-vue'
+import { Search, ArrowLeft, ArrowRight, Check, Calendar, Bell } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getStudents, createStudent, updateStudent, adjustHours as apiAdjustHours } from '@/api/common/students'
+import { getStudents, updateStudent, adjustHours as apiAdjustHours } from '@/api/common/students'
 import { getTeacherStudentWrongQuestions } from '@/api/common/questions'
+import { useAuthStore } from '@/store/auth'
+
+const auth = useAuthStore()
+// 与 ProfileView 同一口径：uid 优先、兜底 id，统一补足 8 位，保证发给学生的号码和「个人中心」一致
+const uidDisplay = computed(() => String(auth.user?.uid || auth.user?.id || '').padStart(8, '0'))
+async function copyUid() {
+  try { await navigator.clipboard.writeText(uidDisplay.value); ElMessage.success('UID 已复制') }
+  catch { ElMessage.warning(`复制失败，请手动记下：${uidDisplay.value}`) }
+}
 
 // === 调课申请管理 ===
 const allRequests = ref([])
@@ -478,7 +501,10 @@ function sessionsToBatches(enr) {
 }
 
 async function save() {
-  if (!form.name) return ElMessage.warning('请选择学生')
+  // 老师端不再建档案：后端 POST /students 已关闭（老师这条链路没有 UID，只能按姓名猜——
+  // 猜不中就造出重复空档案，老师收不到该学生的试卷；猜错则把排课挂到别的学生档案上）。
+  // 档案只能由学生注册时创建，老师通过 UID 关联后学生才出现在上面的「选择学生」列表里。
+  if (!editingId.value) return ElMessage.warning('请先选择学生（学生需先用你的 UID 与你关联）')
   saving.value = true
   const payload = {
     name: form.name, gender: form.gender, contact: form.contact,
@@ -490,8 +516,7 @@ async function save() {
     }))
   }
   try {
-    if (editingId.value) { await updateStudent(editingId.value, payload); ElMessage.success('已更新') }
-    else { await createStudent(payload); ElMessage.success('已添加') }
+    await updateStudent(editingId.value, payload); ElMessage.success('已更新')
     showForm.value = false
     await loadStudents()
   } catch (e) {
@@ -721,4 +746,12 @@ function exportScheduleExcel() {
 .sched-time{font-size:13px;color:var(--color-primary);margin-bottom:6px;font-weight:500}.schedule-item.completed .sched-time{color:#2563EB}
 .sched-info{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.sched-info strong{font-size:15px}.sched-grade{font-size:12px;color:var(--text-muted)}
 .completed-badge{font-size:12px;color:#2563EB;margin-top:6px;font-weight:600}
+/* UID 关联引导：空态与排课弹窗各一处，文案同源（老师端不再手工建档案） */
+.stu-empty{padding:24px 16px;text-align:center}
+.stu-empty .se-title{font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:8px}
+.stu-empty .se-sub{font-size:13px;color:var(--text-muted);line-height:1.7;max-width:520px;margin:0 auto 12px}
+.stu-empty .se-uid{font-size:13px;color:var(--text-secondary)}
+.stu-empty .se-uid strong{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;color:var(--color-primary);letter-spacing:1px}
+.uid-tip{margin:-6px 0 14px 80px;font-size:12px;color:var(--text-muted);line-height:1.7}
+.uid-tip strong{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--color-primary);letter-spacing:1px}
 </style>
