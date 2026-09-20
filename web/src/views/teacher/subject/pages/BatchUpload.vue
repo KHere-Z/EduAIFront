@@ -526,6 +526,43 @@ function confirmCrop(q) {
   ElMessage.success('配图已截取（红框保留，可继续微调，或点「取消」关闭）')
 }
 
+// ===== 原题图（蓝框区域）=====
+// 详情页的「📷 原上传图片」读的是 originalImageUrl，而 submitBatch 原来写死 ''，
+// 于是批量入库的题在详情页永远显示「无原图」。可批量流程里并不是没有原图可用：
+// 蓝框（q.bbox）就是 OCR 切出来的题目区域，老师还能拖动修正，只是从来没人把它渲染成图
+// ——confirmCrop 只处理红框（配图）。这里把蓝框截下来，入库时随题一起带上。
+//
+// 同一页的题共用一次解码：逐题 new Image() 去解整页（照片动辄 3000×4000）成本不低，
+// 而缓存只留最后一页，内存有界。
+let regionCache = { page: null, img: null }
+function loadRegionImg(page) {
+  if (regionCache.page === page && regionCache.img) return Promise.resolve(regionCache.img)
+  return new Promise(resolve => {
+    const img = new Image()
+    img.onload = () => { regionCache = { page, img }; resolve(img) }
+    img.onerror = () => resolve(null)
+    img.src = page.imageUrl   // data URL：同源，canvas 不会被污染
+  })
+}
+async function cropQuestionRegion(page, q) {
+  if (!page?.imageUrl || !q?.bbox) return ''
+  const img = await loadRegionImg(page)
+  const nw = img?.naturalWidth, nh = img?.naturalHeight
+  if (!nw || !nh) return ''
+  // bbox 是页面百分比（boxStyle 就是按百分比贴蓝框的），故按原图尺寸换算，截出来与蓝框所见一致
+  const sx = q.bbox.x / 100 * nw, sy = q.bbox.y / 100 * nh
+  const sw = q.bbox.w / 100 * nw, sh = q.bbox.h / 100 * nh
+  if (sw < 2 || sh < 2) return ''
+  // 宽度上限 1400：没识别出题号时 bbox 兜底为整页 (0,0,100,100)，不设限会存进一整张扫描页
+  const k = Math.min(1, 1400 / sw)
+  const c = document.createElement('canvas')
+  c.width = Math.max(1, Math.round(sw * k)); c.height = Math.max(1, Math.round(sh * k))
+  c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height)
+  // 用 JPEG 0.85，不是另外两处裁剪用的 PNG：这里截的是整道题（题干+选项+图），比配图大一个量级，
+  // PNG 会到几百 KB；扫描页/照片本就没有透明通道，JPEG 更划算，文字仍清晰。
+  return c.toDataURL('image/jpeg', 0.85)
+}
+
 // ===== 解析图 =====
 function onAnalysisImg(q, f) {
   if (!f?.raw) return
@@ -575,6 +612,9 @@ async function submitBatch() {
   for (const q of selected) {
     try {
       const firstKp = kps.value.find(k => q.kpIds.includes(k.id))
+      // 原题图：按蓝框从页面图上截一张。批量流程没有单题上传那张「整道题的照片」，
+      // 蓝框是这里唯一能代表「这道题」的区域（也是老师能拖框修正的那个）。
+      const originalImageUrl = await cropQuestionRegion(pages.value[q.pageIndex], q)
       await uploadTeacherQuestion({
         subject: 'math',
         type: uploadType.value,
@@ -584,7 +624,7 @@ async function submitBatch() {
         difficulty: 'MEDIUM',
         gradeLevel: firstKp?.gradeLevel || '',
         knowledgePointIds: q.kpIds.join(','),
-        originalImageUrl: '',
+        originalImageUrl,
         diagramImageUrl: q.diagram,
         solution: stripBase64Images(q.analysis),
         teacherAnalysis: stripBase64Images(q.analysis),
@@ -605,6 +645,7 @@ function resetAll() {
   processedCount.value = 0
   totalPages.value = 0
   selectAll.value = false
+  regionCache = { page: null, img: null }   // 别把上一批的整页解码结果留在内存里
 }
 </script>
 
