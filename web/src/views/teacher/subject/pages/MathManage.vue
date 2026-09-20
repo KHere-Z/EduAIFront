@@ -287,6 +287,7 @@ function imgUrl(url) {
 import { getTeacherQuestions, updateTeacherQuestion, uploadTeacherQuestion, deleteTeacherQuestion } from '@/api/common/questions'
 import { renderMarkdown } from '@/utils/markdown'
 import { resolveStaticUrl } from '@/utils/url'
+import { parseImageList } from '@/utils/images'
 import { getTeacherMathStudents } from '@/api/common/admin'
 import ResourceUploadPanel from '@/components/ResourceUploadPanel.vue'
 import { useAuthStore } from '@/store/auth'
@@ -443,10 +444,8 @@ async function loadHw() {
     ))
     results.forEach((res, i) => {
       hwSubsMap[hws[i].id] = (res?.list || res || []).map(s => {
-        if (s.submittedImageUrl) {
-          const val = String(s.submittedImageUrl)
-          s.submittedImages = val.startsWith('data:') ? [{ url: val }] : val.split(',').map(u => ({ url: u.trim() })).filter(i => i.url)
-        }
+        // 分隔符规则见 utils/images.js（原来裸 split(',')：单张 data URL 会被拆成「头 + 体」两半）
+        if (s.submittedImageUrl) s.submittedImages = parseImageList(s.submittedImageUrl)
         return s
       })
     })
@@ -457,12 +456,11 @@ async function createHomework() {
   try { await http.post('/teacher/homework', { subject:'math', title:hwForm.title, description:hwForm.desc, studentIds:hwForm.studentIds }); showHomeworkForm=false; hwForm.title=''; hwForm.desc=''; hwForm.studentIds=[]; loadHw(); ElMessage.success('已布置') } catch(e) { ElMessage.error(e.message) }
 }
 // 加载当前学生的已有批改图
+// 分隔符是 ||||（correctSubmission 追加时拼的，避开 base64 里的逗号），
+// 这里原来按 \n 拆 —— 两张以上拆不开，整串被塞进一个 <img src>。规则见 utils/images.js。
 function loadExistingCorr() {
-  const s = corrSub.value
-  const base64s = s?.correctedImageUrl
-    ? String(s.correctedImageUrl).split('\n').filter(Boolean).map(u => u.trim())
-    : []
-  corrImgs.value = [...base64s.map(u => ({ url: u, existing: true })), ...corrImgs.value.filter(i => !i.existing)]
+  const existing = parseImageList(corrSub.value?.correctedImageUrl).map(i => ({ ...i, existing: true }))
+  corrImgs.value = [...existing, ...corrImgs.value.filter(i => !i.existing)]
 }
 watch(corrIdx, () => { loadExistingCorr() })
 
