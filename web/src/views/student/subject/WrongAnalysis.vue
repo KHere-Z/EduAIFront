@@ -12,9 +12,6 @@
             </svg>
             <h3>AI 错题分析</h3>
             <p>拍照上传错题，AI 自动识别分析</p>
-            <div class="quick-chips">
-              <span class="qc-chip" v-for="qc in quickChips" :key="qc" @click="sendQuick(qc)">{{ qc }}</span>
-            </div>
           </div>
 
           <div v-for="(msg, i) in messages" :key="i" :class="['msg-row', msg.role]">
@@ -65,20 +62,20 @@
         <!-- 空状态 -->
         <div v-if="panelStage==='idle'" class="panel-empty">
           <div class="pe-icon">📋</div>
-          <div class="pe-text">上传题目图片或输入文字<br/>豆包 AI 将直接识图分析</div>
+          <div class="pe-text">上传题目图片或输入文字<br/>智学AI 将直接识图分析</div>
         </div>
 
         <!-- 题目原图 -->
         <div class="panel-section" v-if="panelStage!=='idle'">
           <div class="ps-head">
             <span class="psh-icon">📷</span> 题目
-            <span class="psh-hint">（豆包 AI 识图提取题目原文）</span>
+            <span class="psh-hint">（智学AI 识图提取题目原文）</span>
           </div>
           <!-- 上传后直接显示原图 -->
           <img v-if="panelOriginal" :src="panelOriginal" class="pd-diagram" @click="previewImg=panelOriginal;showPreview=true" title="原图，点击预览" />
           <div v-else-if="panelStage==='loading'" class="ps-loading">⏳ 处理图片中…</div>
-          <div v-else class="pd-hint">💡 未上传图片，豆包将按文字描述分析</div>
-          <div v-if="panelStage==='recognizing'" class="ps-loading">🔍 豆包识别题目中…</div>
+          <div v-else class="pd-hint">💡 未上传图片，智学AI 将按文字描述分析</div>
+          <div v-if="panelStage==='recognizing'" class="ps-loading">🔍 智学AI 识别题目中…</div>
           <!-- 题目内容：识别后直接渲染，点击「编辑」可改 -->
           <div v-if="panelQuestionText && panelStage !== 'loading' && panelStage !== 'recognizing'" class="pq-view">
             <div v-if="!questionEditing" class="pq-render" v-html="questionHtml"></div>
@@ -110,7 +107,7 @@
               <el-button size="small" text type="primary" @click="openCropDiagram">✂️ 裁剪配图</el-button>
             </div>
           </div>
-          <div v-if="!panelDiagram" class="pd-hint">💡 题目含几何图？点「✂️ 裁剪配图」从原图框选，帮助豆包更准识别</div>
+          <div v-if="!panelDiagram" class="pd-hint">💡 题目含几何图？点「✂️ 裁剪配图」从原图框选，帮助智学AI 更准识别</div>
           <img v-if="panelDiagram" :src="panelDiagram" class="pd-diagram" @click="previewImg=panelDiagram;showPreview=true" @paste="onDiagramPaste" title="可直接 Ctrl+V 粘贴图片替换"/>
         </div>
 
@@ -202,14 +199,6 @@ const pendingFiles = ref([])
 const showPreview = ref(false)
 const previewImg = ref('')
 const canSend = computed(() => inputText.value.trim() || pendingFiles.value.length)
-
-const quickChips = [
-  '这道题我不会，请帮我分析错因',
-  '拍照上传了一道几何题，帮我讲解',
-  '最近总是计算粗心怎么办？',
-  '帮我举一反三出3道类似题',
-  '请分析这道题的考点和解题思路',
-]
 
 // ═══════════ 右侧面板 ═══════════
 const panelStage = ref('idle') // idle | loading | recognizing | ocr | analyzing | done
@@ -479,8 +468,6 @@ function fileToBase64(file) {
   })
 }
 
-function sendQuick(text) { inputText.value = text }
-
 // 自动检测裸 LaTeX 命令（如 \frac、\sqrt）并包裹为 $$...$$ 或 $...$
 function wrapLatex(text) {
   if (!text) return text
@@ -548,7 +535,7 @@ async function send() {
     panelStage.value = 'ocr'
 
     const tip = imgFiles.length > 0
-      ? '📷 **题目已识别**，豆包已提取题目内容（右侧可编辑）。确认后点击「开始分析」'
+      ? '📷 **题目已识别**，智学AI 已提取题目内容（右侧可编辑）。确认后点击「开始分析」'
       : '📝 **题目已录入**，可在右侧补充文字说明后点击「开始分析」'
     messages.value.push({ role: 'ai', text: await renderMarkdown(tip), files: [], time: timeStr })
   } catch (e) {
@@ -737,9 +724,6 @@ onBeforeUnmount(() => { showCrop.value = false; showPreview.value = false })
 @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
 .welcome-area h3 { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
 .welcome-area p { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
-.quick-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.qc-chip { padding: 6px 14px; border-radius: 16px; font-size: 12px; background: var(--color-bg-alt); color: var(--text-secondary); cursor: pointer; transition: all .15s; border: 1px solid var(--color-border-light); }
-.qc-chip:hover { border-color: var(--color-primary-light); color: var(--color-primary); background: #fff; }
 
 .msg-row { display: flex; gap: 8px; max-width: 88%; }
 .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
